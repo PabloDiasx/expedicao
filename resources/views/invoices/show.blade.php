@@ -1,4 +1,4 @@
-<x-layouts.app :title="'Nota Fiscal #'.$invoice->external_id">
+<x-layouts.app :title="$invoice->numero ? 'Nota Fiscal '.$invoice->numero : 'Nota Fiscal'">
     <section class="panel-card">
         <div class="invoice-detail-top">
             <a href="{{ route('invoices.index') }}" class="page-btn page-btn-light">Voltar</a>
@@ -24,51 +24,91 @@
     <section class="panel-card">
         <h2 class="section-title">Dados principais</h2>
         <div class="invoice-kv-grid">
-            <div><strong>ID Nomus:</strong> {{ $invoice->external_id }}</div>
             <div><strong>Numero:</strong> {{ $invoice->numero ?? '-' }}</div>
-            <div><strong>Serie:</strong> {{ $invoice->serie ?? '-' }}</div>
             <div><strong>CNPJ Emitente:</strong> {{ $invoice->cnpj_emitente ?? '-' }}</div>
-            <div><strong>Chave:</strong> {{ $invoice->chave ?? '-' }}</div>
+            <div><strong>Emitente:</strong> {{ $xmlData['emitente']['nome'] ?: '-' }}</div>
+            <div><strong>Destinatario:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
+            <div>
+                <strong>Valor NF:</strong>
+                @if ($xmlData['totais']['valor_nf'])
+                    R$ {{ number_format((float) $xmlData['totais']['valor_nf'], 2, ',', '.') }}
+                @else
+                    -
+                @endif
+            </div>
             <div><strong>Atualizado:</strong> {{ $invoice->nomus_updated_at ? $invoice->nomus_updated_at->format('d/m/Y H:i:s') : '-' }}</div>
         </div>
     </section>
 
-    @if (! empty($nomusDetails))
+    @if ($xmlData['has_xml'])
         @php
-            $detailsWithoutXml = $nomusDetails;
-            if (is_array($detailsWithoutXml)) {
-                unset($detailsWithoutXml['xml']);
-            }
+            $parseDecimal = static function (?string $value): ?float {
+                if (! is_string($value) || trim($value) === '') {
+                    return null;
+                }
+
+                $normalized = trim($value);
+                if (str_contains($normalized, ',') && str_contains($normalized, '.')) {
+                    $normalized = str_replace('.', '', $normalized);
+                    $normalized = str_replace(',', '.', $normalized);
+                } elseif (str_contains($normalized, ',')) {
+                    $normalized = str_replace(',', '.', $normalized);
+                }
+
+                if (! is_numeric($normalized)) {
+                    return null;
+                }
+
+                return (float) $normalized;
+            };
+
+            $formatCurrency = static function (?string $value) use ($parseDecimal): string {
+                $amount = $parseDecimal($value);
+
+                return $amount === null ? '-' : 'R$ '.number_format($amount, 2, ',', '.');
+            };
+
+            $formatDocument = static function (?string $value): string {
+                if (! is_string($value) || trim($value) === '') {
+                    return '-';
+                }
+
+                $digits = preg_replace('/\D+/', '', $value) ?? '';
+                if (strlen($digits) === 14) {
+                    return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $digits) ?? $value;
+                }
+
+                if (strlen($digits) === 11) {
+                    return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $digits) ?? $value;
+                }
+
+                return trim($value);
+            };
+
+            $formatQuantity = static function (?string $value) use ($parseDecimal): string {
+                $amount = $parseDecimal($value);
+                if ($amount === null) {
+                    return '-';
+                }
+
+                if (abs($amount - round($amount)) < 0.00001) {
+                    return (string) (int) round($amount);
+                }
+
+                return rtrim(rtrim(number_format($amount, 4, ',', '.'), '0'), ',');
+            };
         @endphp
 
         <section class="panel-card">
-            <h2 class="section-title">Campos completos da nota</h2>
-            <div class="invoice-kv-grid">
-                @foreach ($detailsWithoutXml as $key => $value)
-                    <div>
-                        <strong>{{ $key }}:</strong>
-                        @if (is_array($value) || is_object($value))
-                            <code>{{ json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</code>
-                        @else
-                            {{ (string) $value }}
-                        @endif
-                    </div>
-                @endforeach
-            </div>
-        </section>
-    @endif
-
-    @if ($xmlData['has_xml'])
-        <section class="panel-card">
-            <h2 class="section-title">Informacoes extraidas da DANFE/XML</h2>
+            <h2 class="section-title">Resumo da Nota Fiscal</h2>
 
             <div class="invoice-kv-grid">
                 <div><strong>Emitente:</strong> {{ $xmlData['emitente']['nome'] ?: '-' }}</div>
-                <div><strong>CNPJ Emitente:</strong> {{ $xmlData['emitente']['cnpj'] ?: '-' }}</div>
+                <div><strong>CNPJ do Emitente:</strong> {{ $formatDocument($xmlData['emitente']['cnpj'] ?? null) }}</div>
                 <div><strong>Destinatario:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
-                <div><strong>CNPJ/CPF Destinatario:</strong> {{ $xmlData['destinatario']['cnpj'] ?: ($xmlData['destinatario']['cpf'] ?: '-') }}</div>
-                <div><strong>Valor Produtos:</strong> {{ $xmlData['totais']['valor_produtos'] ?: '-' }}</div>
-                <div><strong>Valor NF:</strong> {{ $xmlData['totais']['valor_nf'] ?: '-' }}</div>
+                <div><strong>CNPJ/CPF do Destinatario:</strong> {{ $formatDocument($xmlData['destinatario']['cnpj'] ?: ($xmlData['destinatario']['cpf'] ?: null)) }}</div>
+                <div><strong>Valor dos Produtos:</strong> {{ $formatCurrency($xmlData['totais']['valor_produtos'] ?? null) }}</div>
+                <div><strong>Valor Total da Nota:</strong> {{ $formatCurrency($xmlData['totais']['valor_nf'] ?? null) }}</div>
             </div>
 
             <h3 class="invoice-subtitle">Itens da nota</h3>
@@ -77,24 +117,24 @@
                     <thead>
                         <tr>
                             <th>Item</th>
-                            <th>Codigo</th>
+                            <th>N&deg;Serie</th>
                             <th>Descricao</th>
-                            <th>Qtd</th>
+                            <th>Quantidade</th>
                             <th>Unidade</th>
-                            <th>Vlr Unit.</th>
-                            <th>Vlr Total</th>
+                            <th>Valor Unitario</th>
+                            <th>Valor Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($xmlData['itens'] as $item)
                             <tr>
                                 <td>{{ $item['item'] ?: '-' }}</td>
-                                <td>{{ $item['codigo'] ?: '-' }}</td>
+                                <td>{{ $item['numero_serie'] ?: '-' }}</td>
                                 <td>{{ $item['descricao'] ?: '-' }}</td>
-                                <td>{{ $item['quantidade'] ?: '-' }}</td>
+                                <td>{{ $formatQuantity($item['quantidade'] ?: null) }}</td>
                                 <td>{{ $item['unidade'] ?: '-' }}</td>
-                                <td>{{ $item['valor_unitario'] ?: '-' }}</td>
-                                <td>{{ $item['valor_total'] ?: '-' }}</td>
+                                <td>{{ $formatCurrency($item['valor_unitario'] ?: null) }}</td>
+                                <td>{{ $formatCurrency($item['valor_total'] ?: null) }}</td>
                             </tr>
                         @empty
                             <tr>
@@ -105,25 +145,7 @@
                 </table>
             </div>
 
-            <details class="invoice-raw-xml">
-                <summary>Ver XML bruto completo</summary>
-                <pre>{{ $xmlData['raw_xml'] }}</pre>
-            </details>
-        </section>
-    @endif
-
-    @if ($danfeInfo && $danfeInfo['has_file'])
-        <section class="panel-card">
-            <h2 class="section-title">Preview da DANFE</h2>
-            <p class="muted">
-                Tamanho aproximado do PDF: {{ number_format($danfeInfo['size_bytes'] / 1024, 1, ',', '.') }} KB
-            </p>
-            <iframe
-                class="danfe-frame"
-                src="{{ route('invoices.danfe', $invoice) }}"
-                title="DANFE"
-                loading="lazy"
-            ></iframe>
         </section>
     @endif
 </x-layouts.app>
+

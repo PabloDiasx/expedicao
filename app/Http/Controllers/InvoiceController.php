@@ -8,6 +8,8 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use RuntimeException;
 use Throwable;
@@ -26,7 +28,17 @@ class InvoiceController extends Controller
         ]);
 
         $query = FiscalInvoice::query()
-            ->where('tenant_id', $tenant->id);
+            ->where('tenant_id', $tenant->id)
+            ->select([
+                'id',
+                'tenant_id',
+                'external_id',
+                'numero',
+                'status',
+                'data_processamento',
+                'nomus_updated_at',
+                'updated_at',
+            ]);
 
         $search = trim((string) ($validated['q'] ?? ''));
         if ($search !== '') {
@@ -54,7 +66,31 @@ class InvoiceController extends Controller
 
         $invoiceSummaries = [];
         foreach ($invoices as $invoice) {
-            $invoiceSummaries[$invoice->id] = $this->extractListSummary($invoice);
+            $summaryVersion = $invoice->nomus_updated_at?->timestamp
+                ?? $invoice->updated_at?->timestamp
+                ?? 0;
+
+            $cacheKey = sprintf('invoice:list-summary:%d:%d', (int) $invoice->id, (int) $summaryVersion);
+
+            $invoiceSummaries[$invoice->id] = Cache::remember(
+                $cacheKey,
+                now()->addHours(6),
+                function () use ($invoice): array {
+                    $fullInvoice = FiscalInvoice::query()->find($invoice->id);
+
+                    if (! $fullInvoice) {
+                        return [
+                            'destinatario_nome' => '',
+                            'valor_total_formatado' => '-',
+                            'data_emissao' => '-',
+                            'situacao' => '-',
+                            'situacao_cor' => '#64748b',
+                        ];
+                    }
+
+                    return $this->extractListSummary($fullInvoice);
+                }
+            );
         }
 
         return view('invoices.index', [
@@ -70,38 +106,14 @@ class InvoiceController extends Controller
 
     public function show(
         FiscalInvoice $invoice,
-        TenantContext $tenantContext,
-        NomusApiClient $nomusApiClient
+        TenantContext $tenantContext
     ): View {
         $tenant = $tenantContext->tenant();
         abort_unless($tenant && $invoice->tenant_id === $tenant->id, 404);
 
         $nomusDetails = is_array($invoice->payload) ? $invoice->payload : [];
-        $danfeInfo = null;
+        $danfeInfo = ['has_file' => true];
         $apiError = null;
-
-        try {
-            $freshDetails = $nomusApiClient->getInvoice((int) $invoice->external_id);
-            if ($freshDetails !== []) {
-                $nomusDetails = $freshDetails;
-            }
-        } catch (Throwable $exception) {
-            if ($nomusDetails === []) {
-                $apiError = $exception->getMessage();
-            }
-        }
-
-        try {
-            $danfe = $nomusApiClient->getInvoiceDanfe((int) $invoice->external_id);
-            $danfeInfo = [
-                'has_file' => true,
-                'size_bytes' => (int) floor(strlen($danfe['arquivo']) * 0.75),
-            ];
-        } catch (Throwable $exception) {
-            if ($apiError === null && $nomusDetails === []) {
-                $apiError = $exception->getMessage();
-            }
-        }
 
         $xmlData = $this->extractXmlSummary(is_array($nomusDetails) ? ($nomusDetails['xml'] ?? null) : null);
 
@@ -152,6 +164,7 @@ class InvoiceController extends Controller
      *     destinatario: array<string, string>,
      *     totais: array<string, string>,
      *     itens: array<int, array<string, string>>,
+     *     serial_numbers: array<int, string>,
      *     raw_xml: string|null
      * }
      */
@@ -163,6 +176,7 @@ class InvoiceController extends Controller
             'destinatario' => [],
             'totais' => [],
             'itens' => [],
+            'serial_numbers' => [],
             'raw_xml' => null,
         ];
 
@@ -204,6 +218,7 @@ class InvoiceController extends Controller
             ];
 
             $itemNodes = $xpath->query('//*[local-name()="det"]');
+            $serialNumbers = [];
             if ($itemNodes !== false) {
                 foreach ($itemNodes as $itemNode) {
                     if (! $itemNode instanceof \DOMElement) {
@@ -211,17 +226,33 @@ class InvoiceController extends Controller
                     }
 
                     $prodPathBase = './/*[local-name()="prod"]';
+                    $descricaoItem = $this->firstText($xpath, $prodPathBase.'/*[local-name()="xProd"]', $itemNode);
+                    $infoAdicionalItem = $this->firstText($xpath, './/*[local-name()="infAdProd"]', $itemNode);
+                    $itemSerialNumbers = array_values(array_unique([
+                        ...$this->extractSerialNumbers($infoAdicionalItem),
+                        ...$this->extractSerialNumbers($descricaoItem),
+                    ]));
+
                     $result['itens'][] = [
                         'item' => (string) $itemNode->getAttribute('nItem'),
                         'codigo' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="cProd"]', $itemNode),
-                        'descricao' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="xProd"]', $itemNode),
+                        'numero_serie' => implode(', ', $itemSerialNumbers),
+                        'descricao' => $descricaoItem,
                         'quantidade' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="qCom"]', $itemNode),
                         'unidade' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="uCom"]', $itemNode),
                         'valor_unitario' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="vUnCom"]', $itemNode),
                         'valor_total' => $this->firstText($xpath, $prodPathBase.'/*[local-name()="vProd"]', $itemNode),
+                        'info_adicional' => $infoAdicionalItem,
+                    ];
+
+                    $serialNumbers = [
+                        ...$serialNumbers,
+                        ...$itemSerialNumbers,
                     ];
                 }
             }
+
+            $result['serial_numbers'] = array_values(array_unique($serialNumbers));
         } catch (Throwable) {
             // Keep fallback with raw XML only
         }
@@ -239,6 +270,35 @@ class InvoiceController extends Controller
         $text = trim((string) $nodeList->item(0)?->textContent);
 
         return $text;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function extractSerialNumbers(string $text): array
+    {
+        $rawText = trim($text);
+        if ($rawText === '') {
+            return [];
+        }
+
+        $normalizedText = Str::upper(Str::ascii($rawText));
+
+        $matches = [];
+        preg_match_all(
+            '/\bN\s*O?\.?\s*SERIE\s*[:\-]?\s*([A-Z0-9][A-Z0-9.\-\/]*)/',
+            $normalizedText,
+            $matches
+        );
+
+        if (! isset($matches[1]) || ! is_array($matches[1])) {
+            return [];
+        }
+
+        $serialNumbers = array_map(static fn ($value): string => trim((string) $value), $matches[1]);
+        $serialNumbers = array_filter($serialNumbers, static fn ($value): bool => $value !== '');
+
+        return array_values(array_unique($serialNumbers));
     }
 
     /**
