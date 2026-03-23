@@ -1,4 +1,4 @@
-<x-layouts.app :title="'Producao'">
+<x-layouts.app :title="'Montagem'">
     <section class="panel-card">
         <h2 class="section-title">Leitura de codigo de barras</h2>
         <form method="POST" action="{{ route('production.store') }}" class="operation-form stack-16" novalidate>
@@ -74,7 +74,7 @@
     </section>
 
     <section class="panel-card">
-        <h2 class="section-title">Ultimas movimentacoes da producao</h2>
+        <h2 class="section-title">Ultimas movimentacoes da montagem</h2>
         <div class="table-wrap">
             <table class="data-table">
                 <thead>

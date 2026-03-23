@@ -631,6 +631,44 @@ body.dashboard-page.dark-mode .theme-switch::after {
     gap: 8px;
 }
 
+.dashboard-page .equipments-filters-actions {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.dashboard-page .equipments-actions-group {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0;
+}
+
+.dashboard-page .equipments-actions-group .page-btn {
+    flex: 0 0 auto;
+    min-width: 96px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 0;
+}
+
+.dashboard-page .equipments-actions-group .page-btn:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.dashboard-page .equipments-actions-group .page-btn:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.dashboard-page .equipments-filters-grid .chart-select {
+    width: 100%;
+    min-width: 0;
+}
+
 .dashboard-page .invoice-detail-top {
     display: flex;
     align-items: center;
@@ -1006,6 +1044,20 @@ body.dashboard-page.dark-mode .theme-switch::after {
 
     .dashboard-page .invoices-filters-grid-simple {
         grid-template-columns: 2fr 0.9fr 0.9fr auto;
+    }
+
+    .dashboard-page .equipments-filters-grid {
+        grid-template-columns: 1.6fr 0.9fr 0.9fr auto;
+    }
+
+    .dashboard-page .equipments-filters-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .dashboard-page .equipments-actions-group .page-btn {
+        flex: 0 0 auto;
+        min-width: 96px;
     }
 
     .dashboard-page .form-grid-2 {

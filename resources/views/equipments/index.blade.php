@@ -1,6 +1,6 @@
 <x-layouts.app :title="'Equipamentos'">
     <section class="panel-card">
-        <form method="GET" action="{{ route('equipments.index') }}" class="filters-grid">
+        <form method="GET" action="{{ route('equipments.index') }}" class="filters-grid equipments-filters-grid">
             <div>
                 <label class="panel-label" for="q">Busca</label>
                 <input
@@ -37,9 +37,11 @@
                 </select>
             </div>
 
-            <div class="filters-actions">
-                <button type="submit" class="page-btn">Filtrar</button>
-                <a href="{{ route('equipments.index') }}" class="page-btn page-btn-light">Limpar</a>
+            <div class="filters-actions equipments-filters-actions">
+                <div class="equipments-actions-group">
+                    <button type="submit" class="page-btn">Filtrar</button>
+                    <a href="{{ route('equipments.index') }}" class="page-btn page-btn-light">Limpar</a>
+                </div>
             </div>
         </form>
     </section>
