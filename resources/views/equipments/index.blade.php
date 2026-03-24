@@ -9,7 +9,7 @@
                     type="text"
                     class="input"
                     value="{{ $filters['q'] }}"
-                    placeholder="Serial, codigo de barras ou modelo"
+                    placeholder="Serial, codigo de barras, modelo ou cliente"
                 >
             </div>
 
@@ -70,6 +70,7 @@
                     <tr>
                         <th>Serial</th>
                         <th>Modelo</th>
+                        <th>Cliente</th>
                         <th>Codigo de barras</th>
                         <th>Status</th>
                         <th>Setor</th>
@@ -78,9 +79,16 @@
                 </thead>
                 <tbody>
                     @forelse ($equipments as $equipment)
-                        <tr>
+                        <tr
+                            class="table-row-link"
+                            tabindex="0"
+                            data-href="{{ route('equipments.show', ['equipment' => $equipment->id]) }}"
+                            role="link"
+                            aria-label="Abrir detalhes do equipamento {{ $equipment->serial_number }}"
+                        >
                             <td>{{ $equipment->serial_number }}</td>
                             <td>{{ $equipment->model_name }}</td>
+                            <td>{{ $equipment->entry_customer_name ?? '-' }}</td>
                             <td>{{ $equipment->barcode }}</td>
                             <td>
                                 <span class="status-badge" style="--status-color: {{ $equipment->status_color }}">
@@ -92,7 +100,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="empty-cell">Nenhum equipamento localizado.</td>
+                            <td colspan="7" class="empty-cell">Nenhum equipamento localizado.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -100,3 +108,28 @@
         </div>
     </section>
 </x-layouts.app>
+
+@push('scripts')
+    <script>
+        (function () {
+            const rows = document.querySelectorAll('.table-row-link[data-href]');
+            rows.forEach(function (row) {
+                const href = row.getAttribute('data-href');
+                if (!href) {
+                    return;
+                }
+
+                row.addEventListener('click', function () {
+                    window.location.href = href;
+                });
+
+                row.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        window.location.href = href;
+                    }
+                });
+            });
+        })();
+    </script>
+@endpush

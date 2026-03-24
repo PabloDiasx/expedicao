@@ -53,28 +53,21 @@
                     <span>Dashboard</span>
                 </a>
 
-                <a href="{{ route('production.index', ['etapa' => 'solda']) }}" class="nav-item {{ $isProducao && $etapaAtual === 'solda' ? 'is-active' : '' }}">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
-                        <path d="M4 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                        <path d="M7 16L11 12L14 14L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                    <span>Solda</span>
-                </a>
-
-                <a href="{{ route('production.index', ['etapa' => 'pintura']) }}" class="nav-item {{ $isProducao && $etapaAtual === 'pintura' ? 'is-active' : '' }}">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
-                        <path d="M6 5H18L16 11H8L6 5Z" stroke="currentColor" stroke-width="2"></path>
-                        <path d="M8 11V17C8 18.1 8.9 19 10 19H14C15.1 19 16 18.1 16 17V11" stroke="currentColor" stroke-width="2"></path>
-                    </svg>
-                    <span>Pintura</span>
-                </a>
-
                 <a href="{{ route('production.index', ['etapa' => 'montagem']) }}" class="nav-item {{ $isProducao && ($etapaAtual === '' || $etapaAtual === 'montagem') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"></rect>
                         <path d="M7 8H10M14 8H17M7 12H10M14 12H17M12 18V21" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                     </svg>
                     <span>Montagem</span>
+                </a>
+
+                <a href="{{ route('equipments.index') }}" class="nav-item {{ request()->routeIs('equipments.*') ? 'is-active' : '' }}">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
+                        <path d="M4 8H20V20H4V8Z" stroke="currentColor" stroke-width="2"></path>
+                        <path d="M9 8V4H15V8" stroke="currentColor" stroke-width="2"></path>
+                        <path d="M4 13H20" stroke="currentColor" stroke-width="2"></path>
+                    </svg>
+                    <span>Equipamentos</span>
                 </a>
 
                 <a href="{{ route('expedition.index') }}" class="nav-item {{ $isExpedicao && $etapaAtual !== 'carregamento' ? 'is-active' : '' }}">
@@ -84,7 +77,7 @@
                         <circle cx="7.5" cy="17.5" r="1.5" stroke="currentColor" stroke-width="2"></circle>
                         <circle cx="17.5" cy="17.5" r="1.5" stroke="currentColor" stroke-width="2"></circle>
                     </svg>
-                    <span>Expedi&ccedil;&atilde;o</span>
+                    <span>Entrada</span>
                 </a>
 
                 <a href="{{ route('expedition.index', ['etapa' => 'carregamento']) }}" class="nav-item {{ $isExpedicao && $etapaAtual === 'carregamento' ? 'is-active' : '' }}">
@@ -103,15 +96,6 @@
                         <path d="M9 11H15M9 15H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                     </svg>
                     <span>Notas Fiscais</span>
-                </a>
-
-                <a href="{{ route('equipments.index') }}" class="nav-item {{ request()->routeIs('equipments.*') ? 'is-active' : '' }}">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
-                        <path d="M4 8H20V20H4V8Z" stroke="currentColor" stroke-width="2"></path>
-                        <path d="M9 8V4H15V8" stroke="currentColor" stroke-width="2"></path>
-                        <path d="M4 13H20" stroke="currentColor" stroke-width="2"></path>
-                    </svg>
-                    <span>Equipamentos</span>
                 </a>
 
                 <a href="{{ route('equipment-models.index') }}" class="nav-item {{ request()->routeIs('equipment-models.*') ? 'is-active' : '' }}">

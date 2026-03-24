@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\DB;
 class EquipmentStatusService
 {
     /**
+     * @var array<int, array<int, string>>
+     */
+    private array $serialPrefixCache = [];
+
+    /**
      * @return array{
      *     result: string,
      *     equipment_id: int|null,
@@ -72,13 +77,19 @@ class EquipmentStatusService
             }
 
             if (! $equipment) {
-                $candidateSerial = $this->extractSerialFromScannerCode($normalizedScannerCode);
-                if ($candidateSerial !== null) {
-                    $equipment = $this->findEquipmentBySerial($tenantId, $candidateSerial, $candidateSerial);
-                    if ($equipment) {
-                        $lookupMode = 'converted_serial';
-                        $lookupValue = $candidateSerial;
-                        $convertedSerial = $candidateSerial;
+                $candidateSerials = $this->extractSerialCandidatesFromScannerCode($tenantId, $normalizedScannerCode);
+                if ($candidateSerials !== []) {
+                    $lookupMode = 'converted_serial';
+                    $lookupValue = $candidateSerials[0];
+                    $convertedSerial = $candidateSerials[0];
+
+                    foreach ($candidateSerials as $candidateSerial) {
+                        $equipment = $this->findEquipmentBySerial($tenantId, $candidateSerial, $candidateSerial);
+                        if ($equipment) {
+                            $lookupValue = $candidateSerial;
+                            $convertedSerial = $candidateSerial;
+                            break;
+                        }
                     }
                 }
             }
@@ -240,14 +251,19 @@ class EquipmentStatusService
             ->first();
     }
 
-    private function extractSerialFromScannerCode(string $scannerCode): ?string
+    /**
+     * @return array<int, string>
+     */
+    private function extractSerialCandidatesFromScannerCode(int $tenantId, string $scannerCode): array
     {
+        $candidates = [];
+
         if ($scannerCode === '') {
-            return null;
+            return [];
         }
 
         if (preg_match('/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/', $scannerCode) === 1) {
-            return $scannerCode;
+            $candidates[$scannerCode] = true;
         }
 
         if (preg_match('/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $matches) === 1) {
@@ -256,7 +272,7 @@ class EquipmentStatusService
             $serial = ltrim($matches[3], '0');
             $serial = $serial === '' ? '0' : $serial;
 
-            return $model.'.'.$year.'.'.$serial;
+            $candidates[$model.'.'.$year.'.'.$serial] = true;
         }
 
         if (preg_match('/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/', $scannerCode, $matches) === 1) {
@@ -265,10 +281,55 @@ class EquipmentStatusService
             $serial = ltrim($matches[3], '0');
             $serial = $serial === '' ? '0' : $serial;
 
-            return $model.'.'.$year.'.'.$serial;
+            $candidates[$model.'.'.$year.'.'.$serial] = true;
         }
 
-        return null;
+        if (preg_match('/-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $tailMatches) === 1) {
+            $year = $tailMatches[1];
+            $serialRaw = $tailMatches[2];
+            $serialTrimmed = ltrim($serialRaw, '0');
+            $serialTrimmed = $serialTrimmed === '' ? '0' : $serialTrimmed;
+
+            foreach ($this->loadSerialPrefixesForTenant($tenantId) as $prefix) {
+                if (str_starts_with($scannerCode, $prefix)) {
+                    $candidates[$prefix.'.'.$year.'.'.$serialTrimmed] = true;
+                    $candidates[$prefix.'.'.$year.'.'.$serialRaw] = true;
+                }
+            }
+
+            if (preg_match('/^(V[0-9]{1,2})/', $scannerCode, $modelMatches) === 1) {
+                $candidates[$modelMatches[1].'.'.$year.'.'.$serialTrimmed] = true;
+                $candidates[$modelMatches[1].'.'.$year.'.'.$serialRaw] = true;
+            }
+        }
+
+        return array_values(array_keys($candidates));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function loadSerialPrefixesForTenant(int $tenantId): array
+    {
+        if (isset($this->serialPrefixCache[$tenantId])) {
+            return $this->serialPrefixCache[$tenantId];
+        }
+
+        $prefixes = DB::table('equipments')
+            ->where('tenant_id', $tenantId)
+            ->where('serial_number', 'like', '%.%.%')
+            ->selectRaw('DISTINCT SUBSTRING_INDEX(serial_number, \'.\', 1) as serial_prefix')
+            ->pluck('serial_prefix')
+            ->filter(static fn ($value): bool => is_string($value) && trim($value) !== '')
+            ->map(static fn ($value): string => trim((string) $value))
+            ->values()
+            ->all();
+
+        usort($prefixes, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
+
+        $this->serialPrefixCache[$tenantId] = $prefixes;
+
+        return $prefixes;
     }
 
     private function buildTransitionNotes(?string $notes, string $rawScannerCode, ?string $convertedSerial): ?string

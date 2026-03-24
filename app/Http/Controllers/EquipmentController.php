@@ -40,6 +40,11 @@ class EquipmentController extends Controller
                 'e.barcode',
                 'e.manufactured_at',
                 'e.assembled_at',
+                'e.entry_invoice_id',
+                'e.entry_invoice_number',
+                'e.entry_customer_name',
+                'e.entry_destination',
+                'e.entry_invoice_linked_at',
                 'e.updated_at',
                 'em.name as model_name',
                 'st.id as status_id',
@@ -54,7 +59,9 @@ class EquipmentController extends Controller
             $query->where(function ($inner) use ($search): void {
                 $inner->where('e.serial_number', 'like', '%'.$search.'%')
                     ->orWhere('e.barcode', 'like', '%'.$search.'%')
-                    ->orWhere('em.name', 'like', '%'.$search.'%');
+                    ->orWhere('em.name', 'like', '%'.$search.'%')
+                    ->orWhere('e.entry_customer_name', 'like', '%'.$search.'%')
+                    ->orWhere('e.entry_invoice_number', 'like', '%'.$search.'%');
             });
         }
 
@@ -92,6 +99,67 @@ class EquipmentController extends Controller
                 'status_id' => isset($validated['status_id']) ? (string) $validated['status_id'] : '',
                 'sector_id' => isset($validated['sector_id']) ? (string) $validated['sector_id'] : '',
             ],
+        ]);
+    }
+
+    public function show(int $equipment, TenantContext $tenantContext): View
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+
+        $equipmentRow = DB::table('equipments as e')
+            ->join('equipment_models as em', 'em.id', '=', 'e.equipment_model_id')
+            ->join('statuses as st', 'st.id', '=', 'e.current_status_id')
+            ->leftJoin('sectors as sec', 'sec.id', '=', 'e.current_sector_id')
+            ->leftJoin('fiscal_invoices as fi', function ($join): void {
+                $join->on('fi.id', '=', 'e.entry_invoice_id')
+                    ->on('fi.tenant_id', '=', 'e.tenant_id');
+            })
+            ->where('e.tenant_id', $tenant->id)
+            ->where('e.id', $equipment)
+            ->first([
+                'e.id',
+                'e.serial_number',
+                'e.barcode',
+                'e.notes',
+                'e.manufactured_at',
+                'e.assembled_at',
+                'e.updated_at',
+                'e.entry_invoice_id',
+                'e.entry_invoice_external_id',
+                'e.entry_invoice_number',
+                'e.entry_customer_name',
+                'e.entry_destination',
+                'e.entry_invoice_linked_at',
+                'em.name as model_name',
+                'st.name as status_name',
+                'st.color as status_color',
+                'sec.name as sector_name',
+                'fi.nomus_updated_at as invoice_nomus_updated_at',
+            ]);
+
+        abort_unless($equipmentRow, 404);
+
+        $recentTransitions = DB::table('status_histories as sh')
+            ->join('statuses as st', 'st.id', '=', 'sh.to_status_id')
+            ->leftJoin('sectors as sec', 'sec.id', '=', 'sh.sector_id')
+            ->leftJoin('users as u', 'u.id', '=', 'sh.user_id')
+            ->where('sh.tenant_id', $tenant->id)
+            ->where('sh.equipment_id', $equipment)
+            ->orderByDesc('sh.changed_at')
+            ->limit(20)
+            ->get([
+                'sh.changed_at',
+                'st.name as status_name',
+                'st.color as status_color',
+                'sec.name as sector_name',
+                'u.name as user_name',
+                'sh.notes',
+            ]);
+
+        return view('equipments.show', [
+            'equipment' => $equipmentRow,
+            'recentTransitions' => $recentTransitions,
         ]);
     }
 }

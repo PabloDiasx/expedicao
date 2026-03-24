@@ -31,6 +31,9 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/equipamentos', [EquipmentController::class, 'index'])->name('equipments.index');
+    Route::get('/equipamentos/{equipment}', [EquipmentController::class, 'show'])
+        ->whereNumber('equipment')
+        ->name('equipments.show');
     Route::get('/modelos-equipamentos', [EquipmentModelController::class, 'index'])->name('equipment-models.index');
     Route::post('/modelos-equipamentos', [EquipmentModelController::class, 'store'])->name('equipment-models.store');
     Route::delete('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'destroy'])
@@ -39,6 +42,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/producao', [ProductionController::class, 'index'])->name('production.index');
     Route::post('/producao/leitura', [ProductionController::class, 'store'])->name('production.store');
     Route::get('/expedicao', [ExpeditionController::class, 'index'])->name('expedition.index');
+    Route::get('/expedicao/consulta-nf', [ExpeditionController::class, 'lookupInvoice'])->name('expedition.lookup-invoice');
     Route::post('/expedicao/leitura', [ExpeditionController::class, 'store'])->name('expedition.store');
     Route::get('/notas-fiscais', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/notas-fiscais/{invoice}', [InvoiceController::class, 'show'])
