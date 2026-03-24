@@ -51,7 +51,7 @@
         <div class="summary-grid">
             @forelse ($statusSummary as $summary)
                 <article class="summary-item">
-                    <span class="summary-dot" style="background-color: {{ $summary->color }}"></span>
+                    <span class="summary-dot" style="background-color: @safeColor($summary->color)"></span>
                     <div>
                         <p class="summary-title">{{ $summary->name }}</p>
                         <p class="summary-value">{{ $summary->total }}</p>
@@ -91,7 +91,7 @@
                             <td>{{ $equipment->entry_customer_name ?? '-' }}</td>
                             <td>{{ $equipment->barcode }}</td>
                             <td>
-                                <span class="status-badge" style="--status-color: {{ $equipment->status_color }}">
+                                <span class="status-badge" style="--status-color: @safeColor($equipment->status_color)">
                                     {{ $equipment->status_name }}
                                 </span>
                             </td>

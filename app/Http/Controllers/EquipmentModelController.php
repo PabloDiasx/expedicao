@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -25,8 +24,6 @@ class EquipmentModelController extends Controller
 
         $search = trim((string) ($validated['q'] ?? ''));
         $activeFilter = (string) ($validated['active'] ?? '1');
-        $hiddenIds = Cache::get($this->hiddenModelsCacheKey((int) $tenant->id), []);
-
         $query = DB::table('equipment_models as em')
             ->where('em.tenant_id', $tenant->id)
             ->select([
@@ -36,10 +33,6 @@ class EquipmentModelController extends Controller
                 'em.is_active',
                 'em.created_at',
             ]);
-
-        if (is_array($hiddenIds) && count($hiddenIds) > 0) {
-            $query->whereNotIn('em.id', array_map('intval', $hiddenIds));
-        }
 
         if ($search !== '') {
             $query->where(function ($inner) use ($search): void {
@@ -138,26 +131,17 @@ class EquipmentModelController extends Controller
             ]);
         }
 
-        $cacheKey = $this->hiddenModelsCacheKey((int) $tenant->id);
-        $hiddenIds = Cache::get($cacheKey, []);
-
-        if (! is_array($hiddenIds)) {
-            $hiddenIds = [];
-        }
-
-        $hiddenIds[] = (int) $equipmentModel->id;
-        $hiddenIds = array_values(array_unique(array_map('intval', $hiddenIds)));
-
-        Cache::forever($cacheKey, $hiddenIds);
+        DB::table('equipment_models')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $equipmentModel->id)
+            ->update([
+                'is_active' => false,
+                'updated_at' => now(),
+            ]);
 
         return redirect()
             ->route('equipment-models.index')
-            ->with('status', 'Modelo removido da tela com sucesso.');
-    }
-
-    private function hiddenModelsCacheKey(int $tenantId): string
-    {
-        return 'equipment_models.hidden_ids.tenant_'.$tenantId;
+            ->with('status', 'Modelo desativado com sucesso.');
     }
 
     private function generateModelCode(int $tenantId, string $name, ?string $category): string

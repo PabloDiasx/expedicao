@@ -10,7 +10,7 @@
             <div><strong>Codigo de barras:</strong> {{ $equipment->barcode }}</div>
             <div>
                 <strong>Status:</strong>
-                <span class="status-badge" style="--status-color: {{ $equipment->status_color }}">
+                <span class="status-badge" style="--status-color: @safeColor($equipment->status_color)">
                     {{ $equipment->status_name }}
                 </span>
             </div>
@@ -58,7 +58,7 @@
                         <tr>
                             <td>{{ \Illuminate\Support\Carbon::parse($transition->changed_at)->format('d/m/Y H:i') }}</td>
                             <td>
-                                <span class="status-badge" style="--status-color: {{ $transition->status_color }}">
+                                <span class="status-badge" style="--status-color: @safeColor($transition->status_color)">
                                     {{ $transition->status_name }}
                                 </span>
                             </td>

@@ -178,108 +178,32 @@
 </x-layouts.app>
 
 @push('scripts')
+    <script src="{{ asset('js/barcode-converter.js') }}?v={{ filemtime(public_path('js/barcode-converter.js')) }}"></script>
     <script>
         (function () {
-            const barcodeInput = document.getElementById('barcode');
-            const notesInput = document.getElementById('notes');
+            var barcodeInput = document.getElementById('barcode');
+            var notesInput = document.getElementById('notes');
 
             if (!barcodeInput) {
                 return;
             }
 
-            const form = barcodeInput.closest('form');
+            var form = barcodeInput.closest('form');
             if (!form) {
                 return;
             }
 
-            function convertScannerCodeToSerial(rawValue) {
-                const normalized = String(rawValue || '')
-                    .trim()
-                    .toUpperCase()
-                    .replace(/\s+/g, '');
-
-                if (!normalized) {
-                    return null;
-                }
-
-                if (/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/.test(normalized)) {
-                    return {
-                        raw: normalized,
-                        serial: normalized,
-                        converted: false,
-                    };
-                }
-
-                const dashedMatches = normalized.match(/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/);
-                if (dashedMatches) {
-                    const model = dashedMatches[1];
-                    const year = dashedMatches[2];
-                    const serialNumber = String(parseInt(dashedMatches[3], 10));
-                    const serial = `${model}.${year}.${serialNumber}`;
-
-                    return {
-                        raw: normalized,
-                        serial,
-                        converted: serial !== normalized,
-                    };
-                }
-
-                const dashedTailMatches = normalized.match(/-([0-9]{2})\.([0-9]{1,8})$/);
-                if (dashedTailMatches) {
-                    const modelMatches = normalized.match(/^(V[0-9]{1,2})/);
-                    if (modelMatches) {
-                        const model = modelMatches[1];
-                        const year = dashedTailMatches[1];
-                        const serialNumber = String(parseInt(dashedTailMatches[2], 10));
-                        const serial = `${model}.${year}.${serialNumber}`;
-
-                        return {
-                            raw: normalized,
-                            serial,
-                            converted: serial !== normalized,
-                        };
-                    }
-                }
-
-                const matches = normalized.match(/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/);
-                if (!matches) {
-                    return null;
-                }
-
-                const model = matches[1];
-                const year = matches[2];
-                const serialNumber = String(parseInt(matches[3], 10));
-                const serial = `${model}.${year}.${serialNumber}`;
-
-                return {
-                    raw: normalized,
-                    serial,
-                    converted: serial !== normalized,
-                };
-            }
-
             function ensureConversionBeforeSubmit() {
-                const parsed = convertScannerCodeToSerial(barcodeInput.value);
+                var parsed = BarcodeConverter.convert(barcodeInput.value);
                 if (!parsed || !parsed.converted) {
                     return;
                 }
 
                 barcodeInput.value = parsed.serial;
 
-                if (!notesInput) {
-                    return;
+                if (notesInput) {
+                    notesInput.value = BarcodeConverter.appendConversionNote(notesInput.value, parsed);
                 }
-
-                const conversionLabel = `Codigo lido: ${parsed.raw} | Serial convertido: ${parsed.serial}`;
-                const currentNotes = String(notesInput.value || '').trim();
-
-                if (currentNotes.includes(conversionLabel)) {
-                    return;
-                }
-
-                notesInput.value = currentNotes === ''
-                    ? conversionLabel
-                    : `${currentNotes} | ${conversionLabel}`;
             }
 
             form.addEventListener('submit', ensureConversionBeforeSubmit);

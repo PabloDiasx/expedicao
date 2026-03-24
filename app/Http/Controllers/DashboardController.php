@@ -12,12 +12,13 @@ class DashboardController extends Controller
     public function index(TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
         $maxDays = 30;
         $startDate = now()->subDays($maxDays - 1)->startOfDay();
 
         $statusByDate = DB::table('status_histories')
             ->selectRaw('DATE(changed_at) as day, COUNT(*) as total')
-            ->where('tenant_id', $tenant?->id)
+            ->where('tenant_id', $tenant->id)
             ->where('changed_at', '>=', $startDate)
             ->groupBy('day')
             ->orderBy('day')

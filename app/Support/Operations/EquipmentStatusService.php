@@ -2,10 +2,12 @@
 
 namespace App\Support\Operations;
 
+use App\Support\Concerns\NormalizesText;
 use Illuminate\Support\Facades\DB;
 
 class EquipmentStatusService
 {
+    use NormalizesText;
     /**
      * @var array<int, array<int, string>>
      */
@@ -204,23 +206,20 @@ class EquipmentStatusService
         });
     }
 
-    private function normalizeNullableText(?string $value): ?string
+    /**
+     * Convert a scanner barcode to the best serial candidate.
+     * Returns the first matching serial or null if no conversion applies.
+     */
+    public function convertScannerCode(int $tenantId, string $scannerCode): ?string
     {
-        if ($value === null) {
+        $normalized = $this->normalizeScannerCode(trim($scannerCode));
+        if ($normalized === '') {
             return null;
         }
 
-        $normalized = trim($value);
+        $candidates = $this->extractSerialCandidatesFromScannerCode($tenantId, $normalized);
 
-        return $normalized === '' ? null : $normalized;
-    }
-
-    private function normalizeScannerCode(string $value): string
-    {
-        $normalized = mb_strtoupper(trim($value));
-        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
-
-        return $normalized;
+        return $candidates !== [] ? $candidates[0] : null;
     }
 
     private function findEquipmentByBarcode(int $tenantId, string $rawScannerCode, string $normalizedScannerCode): ?object
@@ -275,7 +274,7 @@ class EquipmentStatusService
             $candidates[$model.'.'.$year.'.'.$serial] = true;
         }
 
-        if (preg_match('/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/', $scannerCode, $matches) === 1) {
+        if (preg_match('/^([A-Z]+[0-9]+)[A-Z]+([0-9]{2})([0-9]{2,8})$/', $scannerCode, $matches) === 1) {
             $model = $matches[1];
             $year = $matches[2];
             $serial = ltrim($matches[3], '0');
@@ -318,10 +317,17 @@ class EquipmentStatusService
         $prefixes = DB::table('equipments')
             ->where('tenant_id', $tenantId)
             ->where('serial_number', 'like', '%.%.%')
-            ->selectRaw('DISTINCT SUBSTRING_INDEX(serial_number, \'.\', 1) as serial_prefix')
-            ->pluck('serial_prefix')
-            ->filter(static fn ($value): bool => is_string($value) && trim($value) !== '')
-            ->map(static fn ($value): string => trim((string) $value))
+            ->distinct()
+            ->limit(5000)
+            ->pluck('serial_number')
+            ->map(static function ($value): string {
+                $serial = trim((string) $value);
+                $dotPos = strpos($serial, '.');
+
+                return $dotPos !== false ? substr($serial, 0, $dotPos) : $serial;
+            })
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->unique()
             ->values()
             ->all();
 

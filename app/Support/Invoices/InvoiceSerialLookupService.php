@@ -69,7 +69,7 @@ class InvoiceSerialLookupService
     ): array {
         $candidates = FiscalInvoice::query()
             ->where('tenant_id', $tenantId)
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.xml')) LIKE ?", ['%'.$serialRaw.'%'])
+            ->where('payload', 'like', '%'.$serialRaw.'%')
             ->orderByDesc('nomus_updated_at')
             ->orderByDesc('external_id')
             ->limit(30)
@@ -171,6 +171,16 @@ class InvoiceSerialLookupService
             }
 
             try {
+                $maxXmlSize = 5 * 1024 * 1024; // 5MB limit
+                if (strlen($xmlRaw) > $maxXmlSize) {
+                    return [
+                        'customer_name' => '',
+                        'destination' => '',
+                        'serial_keys' => [],
+                        'serial_final_digits' => [],
+                    ];
+                }
+
                 $doc = new \DOMDocument();
                 $loaded = $doc->loadXML($xmlRaw, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
                 if (! $loaded) {

@@ -182,7 +182,7 @@ class NomusApiClient
             ])
             ->timeout((int) config('services.nomus.timeout_seconds', 30));
 
-        $maxAttempts = 6;
+        $maxAttempts = 4;
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             $response = $client->get($baseUrl.'/'.ltrim($path, '/'), $queryParams);
 
@@ -191,7 +191,7 @@ class NomusApiClient
                     throw new RuntimeException('Falha na API Nomus. HTTP 429 para '.$path);
                 }
 
-                $waitSeconds = $this->extractThrottleWaitSeconds($response);
+                $waitSeconds = min(10, $this->extractThrottleWaitSeconds($response) * $attempt);
                 sleep($waitSeconds);
 
                 continue;

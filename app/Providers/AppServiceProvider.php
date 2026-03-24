@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,5 +23,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        Blade::directive('safeColor', function (string $expression): string {
+            return "<?php echo preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($expression)) === 1 ? e($expression) : '#64748b'; ?>";
+        });
     }
 }

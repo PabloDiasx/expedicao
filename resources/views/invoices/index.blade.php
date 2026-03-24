@@ -66,7 +66,7 @@
                                 <td>{{ $summary['valor_total_formatado'] }}</td>
                                 <td>{{ $summary['data_emissao'] }}</td>
                                 <td>
-                                    <span class="status-badge" style="--status-color: {{ $summary['situacao_cor'] }}">
+                                    <span class="status-badge" style="--status-color: @safeColor($summary['situacao_cor'])">
                                         {{ $summary['situacao'] }}
                                     </span>
                                 </td>

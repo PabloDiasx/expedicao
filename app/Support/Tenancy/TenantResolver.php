@@ -40,10 +40,7 @@ class TenantResolver
             }
         }
 
-        return Tenant::query()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->first();
+        return null;
     }
 
     private function extractSlugFromHost(string $host): string

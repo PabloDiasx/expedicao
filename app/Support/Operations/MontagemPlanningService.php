@@ -2,12 +2,14 @@
 
 namespace App\Support\Operations;
 
+use App\Support\Concerns\NormalizesText;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class MontagemPlanningService
 {
+    use NormalizesText;
     public function __construct(
         private readonly EquipmentStatusService $statusService,
     ) {
@@ -627,25 +629,6 @@ class MontagemPlanningService
         $normalized = preg_replace('/[^A-Z0-9]+/', '', $normalized) ?? '';
 
         return $normalized;
-    }
-
-    private function normalizeScannerCode(string $value): string
-    {
-        $normalized = Str::upper(trim($value));
-        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
-
-        return $normalized;
-    }
-
-    private function normalizeNullableText(?string $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        $normalized = trim($value);
-
-        return $normalized === '' ? null : $normalized;
     }
 
     private function parseDecimal(string $value): float

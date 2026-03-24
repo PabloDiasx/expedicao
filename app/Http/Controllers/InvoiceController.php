@@ -76,7 +76,9 @@ class InvoiceController extends Controller
                 $cacheKey,
                 now()->addHours(6),
                 function () use ($invoice): array {
-                    $fullInvoice = FiscalInvoice::query()->find($invoice->id);
+                    $fullInvoice = FiscalInvoice::query()
+                        ->where('tenant_id', $invoice->tenant_id)
+                        ->find($invoice->id);
 
                     if (! $fullInvoice) {
                         return [
@@ -185,6 +187,10 @@ class InvoiceController extends Controller
         }
 
         $xml = trim($xmlRaw);
+        if (strlen($xml) > 5 * 1024 * 1024) {
+            return $result;
+        }
+
         $result['raw_xml'] = $xml;
         $result['has_xml'] = true;
 

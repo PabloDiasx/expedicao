@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Support\Invoices\InvoiceSerialLookupService;
 use App\Support\Operations\EquipmentStatusService;
 use App\Support\Tenancy\TenantContext;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,15 +17,6 @@ class ExpeditionController extends Controller
     {
         $tenant = $tenantContext->tenant();
         abort_unless($tenant, 404);
-
-        $dispatchStatus = DB::table('statuses')
-            ->where('code', 'carregado')
-            ->first(['id', 'name', 'color']);
-
-        $dispatchSector = DB::table('sectors')
-            ->where('code', 'expedicao')
-            ->where('is_active', true)
-            ->first(['id', 'name']);
 
         $recentDispatches = DB::table('status_histories as sh')
             ->join('equipments as e', 'e.id', '=', 'sh.equipment_id')
@@ -47,8 +37,6 @@ class ExpeditionController extends Controller
             ]);
 
         return view('expedition.index', [
-            'dispatchStatus' => $dispatchStatus,
-            'dispatchSector' => $dispatchSector,
             'recentDispatches' => $recentDispatches,
         ]);
     }
@@ -71,7 +59,7 @@ class ExpeditionController extends Controller
             'device_identifier' => ['nullable', 'string', 'max:80'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
-        $validated = $this->prepareBarcodeInput((int) $tenant->id, $validated);
+        $validated = $this->prepareBarcodeInput((int) $tenant->id, $validated, $statusService);
         $invoiceLookup = $invoiceSerialLookupService->findBySerial(
             (int) $tenant->id,
             (string) $validated['barcode']
@@ -229,7 +217,8 @@ class ExpeditionController extends Controller
     public function lookupInvoice(
         Request $request,
         TenantContext $tenantContext,
-        InvoiceSerialLookupService $invoiceSerialLookupService
+        InvoiceSerialLookupService $invoiceSerialLookupService,
+        EquipmentStatusService $statusService
     ): JsonResponse {
         $tenant = $tenantContext->tenant();
         abort_unless($tenant, 404);
@@ -241,7 +230,7 @@ class ExpeditionController extends Controller
         $prepared = $this->prepareBarcodeInput((int) $tenant->id, [
             'barcode' => (string) $validated['barcode'],
             'notes' => null,
-        ]);
+        ], $statusService);
 
         $serial = (string) $prepared['barcode'];
         $invoiceLookup = $invoiceSerialLookupService->findBySerial((int) $tenant->id, $serial);
@@ -276,14 +265,14 @@ class ExpeditionController extends Controller
      *     notes?:string|null
      * }
      */
-    private function prepareBarcodeInput(int $tenantId, array $validated): array
+    private function prepareBarcodeInput(int $tenantId, array $validated, EquipmentStatusService $statusService): array
     {
         $rawBarcode = trim((string) ($validated['barcode'] ?? ''));
         $normalizedBarcode = mb_strtoupper($rawBarcode);
         $normalizedBarcode = preg_replace('/\s+/', '', $normalizedBarcode) ?? $normalizedBarcode;
         $validated['barcode_original'] = $normalizedBarcode;
 
-        $convertedSerial = $this->extractSerialFromScannerCode($tenantId, $normalizedBarcode);
+        $convertedSerial = $statusService->convertScannerCode($tenantId, $normalizedBarcode);
         $validated['converted_serial'] = $convertedSerial;
         if ($convertedSerial === null || $convertedSerial === $normalizedBarcode) {
             $validated['barcode'] = $normalizedBarcode;
@@ -346,23 +335,6 @@ class ExpeditionController extends Controller
             ];
         }
 
-        $existing = DB::table('equipments')
-            ->where('tenant_id', $tenantId)
-            ->where(function ($query) use ($serial, $barcodeOriginal): void {
-                $query->where('serial_number', $serial)
-                    ->orWhere('barcode', $serial)
-                    ->orWhere('barcode', $barcodeOriginal);
-            })
-            ->first(['id']);
-
-        if ($existing) {
-            return [
-                'ok' => true,
-                'created' => false,
-                'equipment_id' => (int) $existing->id,
-            ];
-        }
-
         $serialPrefix = $this->extractSerialPrefix($serial);
         $modelId = $this->resolveModelForSerialPrefix($tenantId, $serialPrefix);
 
@@ -377,9 +349,27 @@ class ExpeditionController extends Controller
             ];
         }
 
-        $now = now();
+        return DB::transaction(function () use ($tenantId, $serial, $barcodeOriginal, $modelId, $statusId, $sectorId): array {
+            $existing = DB::table('equipments')
+                ->where('tenant_id', $tenantId)
+                ->where(function ($query) use ($serial, $barcodeOriginal): void {
+                    $query->where('serial_number', $serial)
+                        ->orWhere('barcode', $serial)
+                        ->orWhere('barcode', $barcodeOriginal);
+                })
+                ->lockForUpdate()
+                ->first(['id']);
 
-        try {
+            if ($existing) {
+                return [
+                    'ok' => true,
+                    'created' => false,
+                    'equipment_id' => (int) $existing->id,
+                ];
+            }
+
+            $now = now();
+
             $equipmentId = (int) DB::table('equipments')->insertGetId([
                 'tenant_id' => $tenantId,
                 'equipment_model_id' => $modelId,
@@ -393,37 +383,13 @@ class ExpeditionController extends Controller
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-        } catch (QueryException) {
-            $existingRace = DB::table('equipments')
-                ->where('tenant_id', $tenantId)
-                ->where(function ($query) use ($serial, $barcodeOriginal): void {
-                    $query->where('serial_number', $serial)
-                        ->orWhere('barcode', $serial)
-                        ->orWhere('barcode', $barcodeOriginal);
-                })
-                ->first(['id']);
-
-            if (! $existingRace) {
-                return [
-                    'ok' => false,
-                    'created' => false,
-                    'equipment_id' => null,
-                    'error' => 'Nao foi possivel cadastrar o equipamento automaticamente na entrada.',
-                ];
-            }
 
             return [
                 'ok' => true,
-                'created' => false,
-                'equipment_id' => (int) $existingRace->id,
+                'created' => true,
+                'equipment_id' => $equipmentId,
             ];
-        }
-
-        return [
-            'ok' => true,
-            'created' => true,
-            'equipment_id' => $equipmentId,
-        ];
+        });
     }
 
     private function extractSerialPrefix(string $serial): ?string
@@ -479,58 +445,6 @@ class ExpeditionController extends Controller
             ->value('id');
         if ($categoryMatch) {
             return (int) $categoryMatch;
-        }
-
-        return null;
-    }
-
-    private function extractSerialFromScannerCode(int $tenantId, string $scannerCode): ?string
-    {
-        if ($scannerCode === '') {
-            return null;
-        }
-
-        if (preg_match('/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/', $scannerCode) === 1) {
-            return $scannerCode;
-        }
-
-        if (preg_match('/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $matches) === 1) {
-            $model = $matches[1];
-            $year = $matches[2];
-            $serial = ltrim($matches[3], '0');
-            $serial = $serial === '' ? '0' : $serial;
-
-            return $model.'.'.$year.'.'.$serial;
-        }
-
-        if (preg_match('/-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $tailMatches) !== 1) {
-            return null;
-        }
-
-        $year = $tailMatches[1];
-        $serial = ltrim($tailMatches[2], '0');
-        $serial = $serial === '' ? '0' : $serial;
-
-        $prefixes = DB::table('equipments')
-            ->where('tenant_id', $tenantId)
-            ->where('serial_number', 'like', '%.%.%')
-            ->selectRaw('DISTINCT SUBSTRING_INDEX(serial_number, \'.\', 1) as serial_prefix')
-            ->pluck('serial_prefix')
-            ->filter(static fn ($value): bool => is_string($value) && trim((string) $value) !== '')
-            ->map(static fn ($value): string => trim((string) $value))
-            ->values()
-            ->all();
-
-        usort($prefixes, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
-
-        foreach ($prefixes as $prefix) {
-            if (str_starts_with($scannerCode, $prefix)) {
-                return $prefix.'.'.$year.'.'.$serial;
-            }
-        }
-
-        if (preg_match('/^(V[0-9]{1,2})/', $scannerCode, $modelMatches) === 1) {
-            return $modelMatches[1].'.'.$year.'.'.$serial;
         }
 
         return null;

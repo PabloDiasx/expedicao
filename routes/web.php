@@ -40,10 +40,14 @@ Route::middleware('auth')->group(function (): void {
         ->whereNumber('model')
         ->name('equipment-models.destroy');
     Route::get('/producao', [ProductionController::class, 'index'])->name('production.index');
-    Route::post('/producao/leitura', [ProductionController::class, 'store'])->name('production.store');
+    Route::post('/producao/leitura', [ProductionController::class, 'store'])
+        ->middleware('throttle:120,1')
+        ->name('production.store');
     Route::get('/expedicao', [ExpeditionController::class, 'index'])->name('expedition.index');
     Route::get('/expedicao/consulta-nf', [ExpeditionController::class, 'lookupInvoice'])->name('expedition.lookup-invoice');
-    Route::post('/expedicao/leitura', [ExpeditionController::class, 'store'])->name('expedition.store');
+    Route::post('/expedicao/leitura', [ExpeditionController::class, 'store'])
+        ->middleware('throttle:120,1')
+        ->name('expedition.store');
     Route::get('/notas-fiscais', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/notas-fiscais/{invoice}', [InvoiceController::class, 'show'])
         ->whereNumber('invoice')

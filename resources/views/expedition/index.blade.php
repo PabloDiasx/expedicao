@@ -2,19 +2,6 @@
     <section class="panel-card">
         <h2 class="section-title">Leitura para entrada</h2>
 
-        @if (! $dispatchStatus || ! $dispatchSector)
-            <div class="alert-warning">
-                Configuracao incompleta: status "Carregado" ou setor "Expedicao" nao encontrados.
-            </div>
-        @else
-            <div class="expedition-meta">
-                <span class="status-badge" style="--status-color: {{ $dispatchStatus->color }}">
-                    Status final: {{ $dispatchStatus->name }}
-                </span>
-                <span class="expedition-sector">Fluxo: Entrada</span>
-            </div>
-        @endif
-
         <form method="POST" action="{{ route('expedition.store') }}" class="operation-form stack-16" novalidate>
             @csrf
             <div>
@@ -128,7 +115,7 @@
                             <td>{{ $item->serial_number }}</td>
                             <td>{{ $item->barcode }}</td>
                             <td>
-                                <span class="status-badge" style="--status-color: {{ $item->status_color }}">
+                                <span class="status-badge" style="--status-color: @safeColor($item->status_color)">
                                     {{ $item->status_name }}
                                 </span>
                             </td>
@@ -147,103 +134,35 @@
 </x-layouts.app>
 
 @push('scripts')
+    <script src="{{ asset('js/barcode-converter.js') }}?v={{ filemtime(public_path('js/barcode-converter.js')) }}"></script>
     <script>
         (function () {
-            const barcodeInput = document.getElementById('barcode');
-            const notesInput = document.getElementById('notes');
-            const invoiceCustomerInput = document.getElementById('entry_customer_name');
-            const invoiceNumberInput = document.getElementById('entry_invoice_number');
-            const invoiceDestinationInput = document.getElementById('entry_destination');
-            const lookupUrl = @json(route('expedition.lookup-invoice'));
-            let lookupRequestId = 0;
+            var barcodeInput = document.getElementById('barcode');
+            var notesInput = document.getElementById('notes');
+            var invoiceCustomerInput = document.getElementById('entry_customer_name');
+            var invoiceNumberInput = document.getElementById('entry_invoice_number');
+            var invoiceDestinationInput = document.getElementById('entry_destination');
+            var lookupUrl = @json(route('expedition.lookup-invoice'));
+            var lookupRequestId = 0;
 
             if (!barcodeInput) {
                 return;
             }
 
-            const form = barcodeInput.closest('form');
+            var form = barcodeInput.closest('form');
             if (!form) {
                 return;
             }
 
-            function convertScannerCodeToSerial(rawValue) {
-                const normalized = String(rawValue || '')
-                    .trim()
-                    .toUpperCase()
-                    .replace(/\s+/g, '');
-
-                if (!normalized) {
-                    return null;
-                }
-
-                if (/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/.test(normalized)) {
-                    return {
-                        raw: normalized,
-                        serial: normalized,
-                        converted: false,
-                    };
-                }
-
-                const dashedMatches = normalized.match(/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/);
-                if (dashedMatches) {
-                    const model = dashedMatches[1];
-                    const year = dashedMatches[2];
-                    const serialNumber = String(parseInt(dashedMatches[3], 10));
-                    const serial = `${model}.${year}.${serialNumber}`;
-
-                    return {
-                        raw: normalized,
-                        serial,
-                        converted: serial !== normalized,
-                    };
-                }
-
-                const dashedTailMatches = normalized.match(/-([0-9]{2})\.([0-9]{1,8})$/);
-                if (dashedTailMatches) {
-                    const modelMatches = normalized.match(/^(V[0-9]{1,2})/);
-                    if (modelMatches) {
-                        const model = modelMatches[1];
-                        const year = dashedTailMatches[1];
-                        const serialNumber = String(parseInt(dashedTailMatches[2], 10));
-                        const serial = `${model}.${year}.${serialNumber}`;
-
-                        return {
-                            raw: normalized,
-                            serial,
-                            converted: serial !== normalized,
-                        };
-                    }
-                }
-
-                const matches = normalized.match(/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/);
-                if (!matches) {
-                    return null;
-                }
-
-                const model = matches[1];
-                const year = matches[2];
-                const serialNumber = String(parseInt(matches[3], 10));
-                const serial = `${model}.${year}.${serialNumber}`;
-
-                return {
-                    raw: normalized,
-                    serial,
-                    converted: serial !== normalized,
-                };
-            }
+            var barcodeOriginalInput = document.createElement('input');
+            barcodeOriginalInput.type = 'hidden';
+            barcodeOriginalInput.name = 'barcode_original';
+            form.appendChild(barcodeOriginalInput);
 
             function clearInvoicePreview() {
-                if (invoiceCustomerInput) {
-                    invoiceCustomerInput.value = '';
-                }
-
-                if (invoiceNumberInput) {
-                    invoiceNumberInput.value = '';
-                }
-
-                if (invoiceDestinationInput) {
-                    invoiceDestinationInput.value = '';
-                }
+                if (invoiceCustomerInput) { invoiceCustomerInput.value = ''; }
+                if (invoiceNumberInput) { invoiceNumberInput.value = ''; }
+                if (invoiceDestinationInput) { invoiceDestinationInput.value = ''; }
             }
 
             function applyInvoicePreview(lookup) {
@@ -252,66 +171,30 @@
                     return;
                 }
 
-                if (invoiceCustomerInput) {
-                    invoiceCustomerInput.value = lookup.invoice.cliente || '';
-                }
-
-                if (invoiceNumberInput) {
-                    invoiceNumberInput.value = lookup.invoice.numero || '';
-                }
-
-                if (invoiceDestinationInput) {
-                    invoiceDestinationInput.value = lookup.invoice.destino || '';
-                }
+                if (invoiceCustomerInput) { invoiceCustomerInput.value = lookup.invoice.cliente || ''; }
+                if (invoiceNumberInput) { invoiceNumberInput.value = lookup.invoice.numero || ''; }
+                if (invoiceDestinationInput) { invoiceDestinationInput.value = lookup.invoice.destino || ''; }
             }
 
-            function appendConversionToNotes(parsed) {
-                if (!notesInput || !parsed || !parsed.converted) {
-                    return;
-                }
-
-                const conversionLabel = `Codigo lido: ${parsed.raw} | Serial convertido: ${parsed.serial}`;
-                const currentNotes = String(notesInput.value || '').trim();
-
-                if (currentNotes.includes(conversionLabel)) {
-                    return;
-                }
-
-                notesInput.value = currentNotes === ''
-                    ? conversionLabel
-                    : `${currentNotes} | ${conversionLabel}`;
-            }
-
-            function fetchInvoicePreview(parsed, showMultipleAlert) {
-                if (!lookupUrl || !parsed || !parsed.serial) {
+            function fetchInvoicePreview(serialValue, showMultipleAlert) {
+                if (!lookupUrl || !serialValue) {
                     clearInvoicePreview();
                     return;
                 }
 
-                const currentRequestId = ++lookupRequestId;
-                const url = `${lookupUrl}?barcode=${encodeURIComponent(parsed.serial)}`;
+                var currentRequestId = ++lookupRequestId;
+                var url = lookupUrl + '?barcode=' + encodeURIComponent(serialValue);
 
                 fetch(url, {
-                    headers: {
-                        Accept: 'application/json',
-                    },
+                    headers: { Accept: 'application/json' },
                     credentials: 'same-origin',
                 })
                     .then(function (response) {
-                        if (!response.ok) {
-                            return null;
-                        }
-
-                        return response.json();
+                        return response.ok ? response.json() : null;
                     })
                     .then(function (payload) {
                         if (!payload || currentRequestId !== lookupRequestId) {
                             return;
-                        }
-
-                        const convertedBarcode = String(payload.barcode_convertido || '').trim();
-                        if (convertedBarcode && barcodeInput.value !== convertedBarcode) {
-                            barcodeInput.value = convertedBarcode;
                         }
 
                         applyInvoicePreview(payload);
@@ -330,18 +213,23 @@
             }
 
             function ensureConversionAndLookup(showMultipleAlert) {
-                const parsed = convertScannerCodeToSerial(barcodeInput.value);
+                var parsed = BarcodeConverter.convert(barcodeInput.value);
                 if (!parsed) {
                     clearInvoicePreview();
+                    barcodeOriginalInput.value = '';
                     return;
                 }
 
-                if (parsed.serial !== barcodeInput.value) {
+                barcodeOriginalInput.value = parsed.raw;
+
+                if (parsed.converted) {
                     barcodeInput.value = parsed.serial;
+                    if (notesInput) {
+                        notesInput.value = BarcodeConverter.appendConversionNote(notesInput.value, parsed);
+                    }
                 }
 
-                appendConversionToNotes(parsed);
-                fetchInvoicePreview(parsed, showMultipleAlert);
+                fetchInvoicePreview(parsed.serial, showMultipleAlert);
             }
 
             form.addEventListener('submit', function () {
