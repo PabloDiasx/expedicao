@@ -29,4 +29,14 @@ class Tenant extends Model
     {
         return $this->hasOne(InvoiceSyncState::class);
     }
+
+    public function salesOrders(): HasMany
+    {
+        return $this->hasMany(NomusSalesOrder::class);
+    }
+
+    public function salesSyncStates(): HasMany
+    {
+        return $this->hasMany(NomusSalesSyncState::class);
+    }
 }

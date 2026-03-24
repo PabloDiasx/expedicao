@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipmentController;
+use App\Http\Controllers\EquipmentModelController;
 use App\Http\Controllers\ExpeditionController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ProductionController;
@@ -30,6 +31,11 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/equipamentos', [EquipmentController::class, 'index'])->name('equipments.index');
+    Route::get('/modelos-equipamentos', [EquipmentModelController::class, 'index'])->name('equipment-models.index');
+    Route::post('/modelos-equipamentos', [EquipmentModelController::class, 'store'])->name('equipment-models.store');
+    Route::delete('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'destroy'])
+        ->whereNumber('model')
+        ->name('equipment-models.destroy');
     Route::get('/producao', [ProductionController::class, 'index'])->name('production.index');
     Route::post('/producao/leitura', [ProductionController::class, 'store'])->name('production.store');
     Route::get('/expedicao', [ExpeditionController::class, 'index'])->name('expedition.index');

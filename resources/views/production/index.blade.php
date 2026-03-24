@@ -1,8 +1,37 @@
-<x-layouts.app :title="'Montagem'">
+<x-layouts.app :title="'Montagem'" :pageClass="'montagem-page'">
+    <section class="panel-card">
+        <form method="GET" action="{{ route('production.index') }}" class="filters-grid montagem-filters-grid">
+            <input type="hidden" name="etapa" value="montagem">
+            <input type="hidden" name="due_from" value="{{ $filters['due_from'] }}">
+            <input type="hidden" name="due_until" value="{{ $filters['due_until'] }}">
+
+            <div>
+                <label class="panel-label" for="q">Busca</label>
+                <input
+                    id="q"
+                    name="q"
+                    type="text"
+                    class="input"
+                    value="{{ $filters['q'] }}"
+                    placeholder="Modelo ou pedido"
+                >
+            </div>
+
+            <div class="filters-actions">
+                <button type="submit" class="page-btn">Filtrar</button>
+                <a href="{{ route('production.index', ['etapa' => 'montagem']) }}" class="page-btn page-btn-light">Limpar</a>
+            </div>
+        </form>
+    </section>
+
     <section class="panel-card">
         <h2 class="section-title">Leitura de codigo de barras</h2>
-        <form method="POST" action="{{ route('production.store') }}" class="operation-form stack-16" novalidate>
+        <form method="POST" action="{{ route('production.store', ['etapa' => 'montagem']) }}" class="operation-form stack-16" novalidate>
             @csrf
+            <input type="hidden" name="q" value="{{ $filters['q'] }}">
+            <input type="hidden" name="due_from" value="{{ $filters['due_from'] }}">
+            <input type="hidden" name="due_until" value="{{ $filters['due_until'] }}">
+
             <div>
                 <label class="panel-label" for="barcode">Codigo de barras</label>
                 <input
@@ -18,29 +47,7 @@
                 >
             </div>
 
-            <div class="form-grid-3">
-                <div>
-                    <label class="panel-label" for="status_id">Status de destino</label>
-                    <select id="status_id" name="status_id" class="chart-select" required>
-                        @foreach ($statuses as $status)
-                            <option value="{{ $status->id }}" {{ (string) old('status_id', $defaultStatusId) === (string) $status->id ? 'selected' : '' }}>
-                                {{ $status->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="panel-label" for="sector_id">Setor</label>
-                    <select id="sector_id" name="sector_id" class="chart-select" required>
-                        @foreach ($sectors as $sector)
-                            <option value="{{ $sector->id }}" {{ (string) old('sector_id', $defaultSectorId) === (string) $sector->id ? 'selected' : '' }}>
-                                {{ $sector->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
+            <div class="form-grid-2">
                 <div>
                     <label class="panel-label" for="device_identifier">Coletor</label>
                     <input
@@ -50,62 +57,118 @@
                         class="input"
                         value="{{ old('device_identifier') }}"
                         maxlength="80"
-                        placeholder="Ex: COLETOR-PROD-01"
+                        placeholder="Ex: COLETOR-MONT-01"
+                    >
+                </div>
+
+                <div>
+                    <label class="panel-label" for="notes">Observacao</label>
+                    <input
+                        id="notes"
+                        name="notes"
+                        type="text"
+                        class="input"
+                        value="{{ old('notes') }}"
+                        maxlength="500"
+                        placeholder="Opcional"
                     >
                 </div>
             </div>
 
-            <div>
-                <label class="panel-label" for="notes">Observacao</label>
-                <textarea
-                    id="notes"
-                    name="notes"
-                    class="input input-textarea"
-                    rows="3"
-                    maxlength="500"
-                    placeholder="Opcional"
-                >{{ old('notes') }}</textarea>
-            </div>
-
             <div class="filters-actions">
-                <button type="submit" class="page-btn">Registrar movimentacao</button>
+                <button type="submit" class="page-btn">Registrar baixa</button>
             </div>
         </form>
     </section>
 
     <section class="panel-card">
-        <h2 class="section-title">Ultimas movimentacoes da montagem</h2>
-        <div class="table-wrap">
+        <div class="montagem-demand-header">
+            <h2 class="section-title montagem-demand-title">Demanda de montagem</h2>
+            <form method="GET" action="{{ route('production.index') }}" class="filters-actions montagem-date-filter">
+                <input type="hidden" name="etapa" value="montagem">
+                <input type="hidden" name="q" value="{{ $filters['q'] }}">
+                <div class="montagem-date-field">
+                    <label class="panel-label" for="demanda_due_from">Data inicial</label>
+                    <input
+                        id="demanda_due_from"
+                        name="due_from"
+                        type="date"
+                        class="input"
+                        value="{{ $filters['due_from'] }}"
+                    >
+                </div>
+                <div class="montagem-date-field">
+                    <label class="panel-label" for="demanda_due_until">Data final</label>
+                    <input
+                        id="demanda_due_until"
+                        name="due_until"
+                        type="date"
+                        class="input"
+                        value="{{ $filters['due_until'] }}"
+                    >
+                </div>
+                <button type="submit" class="page-btn">Atualizar</button>
+            </form>
+        </div>
+        <div class="table-wrap montagem-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Modelo</th>
+                        <th>Qtd Pedido</th>
+                        <th>Qtd Montada</th>
+                        <th>Faltante</th>
+                        <th>Proxima entrega</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($equipmentRows as $row)
+                        <tr>
+                            <td>{{ $row['model_name'] }}</td>
+                            <td>{{ $row['ordered'] }}</td>
+                            <td>{{ $row['assembled'] }}</td>
+                            <td>{{ $row['remaining'] }}</td>
+                            <td>{{ $row['next_delivery'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="empty-cell">Nenhuma demanda pendente para o filtro atual.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel-card">
+        <h2 class="section-title">Ultimas baixas de montagem</h2>
+        <div class="table-wrap montagem-table-wrap">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Data/Hora</th>
                         <th>Serial</th>
-                        <th>Codigo de barras</th>
-                        <th>Status</th>
-                        <th>Setor</th>
+                        <th>Pedido</th>
+                        <th>Item</th>
+                        <th>Coletor</th>
                         <th>Usuario</th>
                         <th>Observacao</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($recentTransitions as $item)
+                    @forelse ($recentScans as $item)
                         <tr>
-                            <td>{{ \Illuminate\Support\Carbon::parse($item->changed_at)->format('d/m/Y H:i') }}</td>
+                            <td>{{ \Illuminate\Support\Carbon::parse($item->scanned_at)->format('d/m/Y H:i') }}</td>
                             <td>{{ $item->serial_number }}</td>
-                            <td>{{ $item->barcode }}</td>
-                            <td>
-                                <span class="status-badge" style="--status-color: {{ $item->status_color }}">
-                                    {{ $item->status_name }}
-                                </span>
-                            </td>
-                            <td>{{ $item->sector_name ?? '-' }}</td>
+                            <td>{{ $item->codigo_pedido }}</td>
+                            <td>{{ $item->item_code }}</td>
+                            <td>{{ $item->device_identifier ?? '-' }}</td>
                             <td>{{ $item->user_name ?? '-' }}</td>
                             <td>{{ $item->notes ?? '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="empty-cell">Nenhuma movimentacao registrada ainda.</td>
+                            <td colspan="7" class="empty-cell">Nenhuma baixa registrada ainda.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -113,3 +176,97 @@
         </div>
     </section>
 </x-layouts.app>
+
+@push('scripts')
+    <script>
+        (function () {
+            const barcodeInput = document.getElementById('barcode');
+            const notesInput = document.getElementById('notes');
+
+            if (!barcodeInput) {
+                return;
+            }
+
+            const form = barcodeInput.closest('form');
+            if (!form) {
+                return;
+            }
+
+            function convertScannerCodeToSerial(rawValue) {
+                const normalized = String(rawValue || '')
+                    .trim()
+                    .toUpperCase()
+                    .replace(/\s+/g, '');
+
+                if (!normalized) {
+                    return null;
+                }
+
+                if (/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/.test(normalized)) {
+                    return {
+                        raw: normalized,
+                        serial: normalized,
+                        converted: false,
+                    };
+                }
+
+                const dashedMatches = normalized.match(/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/);
+                if (dashedMatches) {
+                    const model = dashedMatches[1];
+                    const year = dashedMatches[2];
+                    const serialNumber = String(parseInt(dashedMatches[3], 10));
+                    const serial = `${model}.${year}.${serialNumber}`;
+
+                    return {
+                        raw: normalized,
+                        serial,
+                        converted: serial !== normalized,
+                    };
+                }
+
+                const matches = normalized.match(/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/);
+                if (!matches) {
+                    return null;
+                }
+
+                const model = matches[1];
+                const year = matches[2];
+                const serialNumber = String(parseInt(matches[3], 10));
+                const serial = `${model}.${year}.${serialNumber}`;
+
+                return {
+                    raw: normalized,
+                    serial,
+                    converted: serial !== normalized,
+                };
+            }
+
+            function ensureConversionBeforeSubmit() {
+                const parsed = convertScannerCodeToSerial(barcodeInput.value);
+                if (!parsed || !parsed.converted) {
+                    return;
+                }
+
+                barcodeInput.value = parsed.serial;
+
+                if (!notesInput) {
+                    return;
+                }
+
+                const conversionLabel = `Codigo lido: ${parsed.raw} | Serial convertido: ${parsed.serial}`;
+                const currentNotes = String(notesInput.value || '').trim();
+
+                if (currentNotes.includes(conversionLabel)) {
+                    return;
+                }
+
+                notesInput.value = currentNotes === ''
+                    ? conversionLabel
+                    : `${currentNotes} | ${conversionLabel}`;
+            }
+
+            form.addEventListener('submit', ensureConversionBeforeSubmit);
+            barcodeInput.addEventListener('change', ensureConversionBeforeSubmit);
+        })();
+    </script>
+@endpush

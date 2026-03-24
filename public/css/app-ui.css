@@ -658,12 +658,41 @@ body.dashboard-page.dark-mode .theme-switch::after {
     min-width: 0;
 }
 
+.dashboard-page .montagem-filters-grid {
+    grid-template-columns: 1fr;
+}
+
 .dashboard-page .invoice-detail-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.dashboard-page .montagem-demand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.dashboard-page .montagem-demand-title {
+    margin: 4px 0 0;
+    text-align: left;
+}
+
+.dashboard-page .montagem-date-filter {
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.dashboard-page .montagem-date-field {
+    min-width: 160px;
+    flex: 1 1 200px;
 }
 
 .dashboard-page .page-btn {
@@ -686,6 +715,38 @@ body.dashboard-page.dark-mode .theme-switch::after {
     background: var(--input-bg);
     border: 1px solid var(--input-border);
     color: var(--text);
+}
+
+.dashboard-page .table-action-delete {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #dc2626;
+    border-radius: 8px;
+    background: #dc2626;
+    color: #ffffff;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 0;
+}
+
+.dashboard-page .table-action-delete:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+}
+
+.dashboard-page .table-action-head,
+.dashboard-page .table-action-cell {
+    width: 72px;
+    text-align: center;
+}
+
+.dashboard-page .table-action-form {
+    margin: 0;
+    display: inline-flex;
 }
 
 .dashboard-page .input-textarea {
@@ -730,6 +791,11 @@ body.dashboard-page.dark-mode .theme-switch::after {
 }
 
 .dashboard-page .table-wrap {
+    overflow: auto;
+}
+
+.dashboard-page.montagem-page .montagem-table-wrap {
+    max-height: 260px;
     overflow: auto;
 }
 
@@ -1039,6 +1105,21 @@ body.dashboard-page.dark-mode .theme-switch::after {
         grid-template-columns: 1.6fr 0.9fr 0.9fr auto;
     }
 
+    .dashboard-page .montagem-filters-grid {
+        grid-template-columns: 1.6fr 1fr auto;
+        align-items: end;
+    }
+
+    .dashboard-page .montagem-date-filter {
+        justify-content: flex-end;
+        width: auto;
+    }
+
+    .dashboard-page .montagem-date-field {
+        flex: 0 0 auto;
+        min-width: 190px;
+    }
+
     .dashboard-page .equipments-filters-actions {
         width: 100%;
         justify-content: flex-end;
@@ -1067,6 +1148,30 @@ body.dashboard-page.dark-mode .theme-switch::after {
 }
 
 @media (min-width: 1024px) {
+    body.dashboard-page.montagem-page {
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    .dashboard-page.montagem-page .layout {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .dashboard-page.montagem-page .sidebar {
+        overflow-y: auto;
+    }
+
+    .dashboard-page.montagem-page .content {
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .dashboard-page.montagem-page .montagem-table-wrap {
+        max-height: 280px;
+    }
+
     body.dashboard-page.invoices-list-page {
         height: 100vh;
         height: 100dvh;

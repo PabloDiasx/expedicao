@@ -43,6 +43,8 @@ return [
         'initial_lookback_days' => (int) env('NOMUS_INITIAL_LOOKBACK_DAYS', 30),
         'sync_overlap_minutes' => (int) env('NOMUS_SYNC_OVERLAP_MINUTES', 2),
         'sync_minutes' => (int) env('NOMUS_SYNC_MINUTES', 5),
+        'sales_order_prefix' => env('NOMUS_SALES_ORDER_PREFIX', 'PD'),
+        'pending_item_status' => (int) env('NOMUS_PENDING_ITEM_STATUS', 1),
     ],
 
 ];

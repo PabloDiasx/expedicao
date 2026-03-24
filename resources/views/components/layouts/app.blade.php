@@ -113,6 +113,14 @@
                     </svg>
                     <span>Equipamentos</span>
                 </a>
+
+                <a href="{{ route('equipment-models.index') }}" class="nav-item {{ request()->routeIs('equipment-models.*') ? 'is-active' : '' }}">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
+                        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"></rect>
+                        <path d="M7 10H17M7 14H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                    <span>Modelos</span>
+                </a>
             </nav>
 
             <div class="sidebar-footer">

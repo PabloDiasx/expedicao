@@ -25,14 +25,16 @@ class EquipmentStatusService
         ?string $notes,
         string $eventSource = 'manual'
     ): array {
-        $cleanBarcode = trim($barcode);
+        $rawScannerCode = trim($barcode);
+        $normalizedScannerCode = $this->normalizeScannerCode($rawScannerCode);
         $cleanNotes = $this->normalizeNullableText($notes);
         $cleanDeviceIdentifier = $this->normalizeNullableText($deviceIdentifier);
 
         return DB::transaction(function () use (
             $tenantId,
             $userId,
-            $cleanBarcode,
+            $rawScannerCode,
+            $normalizedScannerCode,
             $toStatusId,
             $sectorId,
             $cleanDeviceIdentifier,
@@ -55,23 +57,47 @@ class EquipmentStatusService
                 ];
             }
 
-            $equipment = DB::table('equipments')
-                ->where('tenant_id', $tenantId)
-                ->where('barcode', $cleanBarcode)
-                ->lockForUpdate()
-                ->first();
+            $lookupMode = 'barcode';
+            $lookupValue = $normalizedScannerCode;
+            $convertedSerial = null;
+
+            $equipment = $this->findEquipmentByBarcode($tenantId, $rawScannerCode, $normalizedScannerCode);
+
+            if (! $equipment) {
+                $equipment = $this->findEquipmentBySerial($tenantId, $rawScannerCode, $normalizedScannerCode);
+                if ($equipment) {
+                    $lookupMode = 'serial';
+                    $lookupValue = (string) $equipment->serial_number;
+                }
+            }
+
+            if (! $equipment) {
+                $candidateSerial = $this->extractSerialFromScannerCode($normalizedScannerCode);
+                if ($candidateSerial !== null) {
+                    $equipment = $this->findEquipmentBySerial($tenantId, $candidateSerial, $candidateSerial);
+                    if ($equipment) {
+                        $lookupMode = 'converted_serial';
+                        $lookupValue = $candidateSerial;
+                        $convertedSerial = $candidateSerial;
+                    }
+                }
+            }
 
             $payload = $this->encodePayload([
                 'requested_status_id' => $toStatusId,
                 'requested_sector_id' => $sectorId,
                 'event_source' => $eventSource,
+                'scanner_input' => $rawScannerCode,
+                'lookup_mode' => $lookupMode,
+                'lookup_value' => $lookupValue,
+                'converted_serial' => $convertedSerial,
             ]);
 
             if (! $equipment) {
                 DB::table('barcode_reads')->insert([
                     'tenant_id' => $tenantId,
                     'equipment_id' => null,
-                    'barcode_value' => $cleanBarcode,
+                    'barcode_value' => $rawScannerCode,
                     'sector_id' => $sectorId,
                     'user_id' => $userId,
                     'device_identifier' => $cleanDeviceIdentifier,
@@ -94,11 +120,16 @@ class EquipmentStatusService
             $fromStatusId = $equipment->current_status_id ? (int) $equipment->current_status_id : null;
             $fromSectorId = $equipment->current_sector_id ? (int) $equipment->current_sector_id : null;
             $isSameTransition = $fromStatusId === $toStatusId && $fromSectorId === $sectorId;
+            $finalNotes = $this->buildTransitionNotes(
+                notes: $cleanNotes,
+                rawScannerCode: $rawScannerCode,
+                convertedSerial: $convertedSerial
+            );
 
             DB::table('barcode_reads')->insert([
                 'tenant_id' => $tenantId,
                 'equipment_id' => (int) $equipment->id,
-                'barcode_value' => $cleanBarcode,
+                'barcode_value' => $rawScannerCode,
                 'sector_id' => $sectorId,
                 'user_id' => $userId,
                 'device_identifier' => $cleanDeviceIdentifier,
@@ -146,7 +177,7 @@ class EquipmentStatusService
                 'sector_id' => $sectorId,
                 'user_id' => $userId,
                 'event_source' => $eventSource,
-                'notes' => $cleanNotes,
+                'notes' => $finalNotes,
                 'changed_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -171,6 +202,92 @@ class EquipmentStatusService
         $normalized = trim($value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function normalizeScannerCode(string $value): string
+    {
+        $normalized = mb_strtoupper(trim($value));
+        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
+
+        return $normalized;
+    }
+
+    private function findEquipmentByBarcode(int $tenantId, string $rawScannerCode, string $normalizedScannerCode): ?object
+    {
+        return DB::table('equipments')
+            ->where('tenant_id', $tenantId)
+            ->where(function ($query) use ($rawScannerCode, $normalizedScannerCode): void {
+                $query->where('barcode', $rawScannerCode);
+                if ($normalizedScannerCode !== $rawScannerCode) {
+                    $query->orWhere('barcode', $normalizedScannerCode);
+                }
+            })
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function findEquipmentBySerial(int $tenantId, string $rawSerial, string $normalizedSerial): ?object
+    {
+        return DB::table('equipments')
+            ->where('tenant_id', $tenantId)
+            ->where(function ($query) use ($rawSerial, $normalizedSerial): void {
+                $query->where('serial_number', $rawSerial);
+                if ($normalizedSerial !== $rawSerial) {
+                    $query->orWhere('serial_number', $normalizedSerial);
+                }
+            })
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function extractSerialFromScannerCode(string $scannerCode): ?string
+    {
+        if ($scannerCode === '') {
+            return null;
+        }
+
+        if (preg_match('/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/', $scannerCode) === 1) {
+            return $scannerCode;
+        }
+
+        if (preg_match('/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $matches) === 1) {
+            $model = $matches[1];
+            $year = $matches[2];
+            $serial = ltrim($matches[3], '0');
+            $serial = $serial === '' ? '0' : $serial;
+
+            return $model.'.'.$year.'.'.$serial;
+        }
+
+        if (preg_match('/^([A-Z]+[0-9]+)[A-Z]{1,6}([0-9]{2})([0-9]{2,8})$/', $scannerCode, $matches) === 1) {
+            $model = $matches[1];
+            $year = $matches[2];
+            $serial = ltrim($matches[3], '0');
+            $serial = $serial === '' ? '0' : $serial;
+
+            return $model.'.'.$year.'.'.$serial;
+        }
+
+        return null;
+    }
+
+    private function buildTransitionNotes(?string $notes, string $rawScannerCode, ?string $convertedSerial): ?string
+    {
+        if ($convertedSerial === null) {
+            return $notes;
+        }
+
+        $conversionNote = sprintf(
+            'Codigo lido: %s | Serial convertido: %s',
+            $rawScannerCode,
+            $convertedSerial
+        );
+
+        if ($notes === null) {
+            return $conversionNote;
+        }
+
+        return $notes.' | '.$conversionNote;
     }
 
     private function encodePayload(array $payload): ?string
