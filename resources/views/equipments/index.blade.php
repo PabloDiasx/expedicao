@@ -47,23 +47,6 @@
     </section>
 
     <section class="panel-card">
-        <h2 class="section-title">Resumo por status</h2>
-        <div class="summary-grid">
-            @forelse ($statusSummary as $summary)
-                <article class="summary-item">
-                    <span class="summary-dot" style="background-color: @safeColor($summary->color)"></span>
-                    <div>
-                        <p class="summary-title">{{ $summary->name }}</p>
-                        <p class="summary-value">{{ $summary->total }}</p>
-                    </div>
-                </article>
-            @empty
-                <p class="empty-state">Nenhum equipamento encontrado para este tenant.</p>
-            @endforelse
-        </div>
-    </section>
-
-    <section class="panel-card">
         <div class="table-wrap">
             <table class="data-table">
                 <thead>
@@ -92,9 +75,35 @@
                             <td>{{ $equipment->entry_customer_name ?? '-' }}</td>
                             <td>{{ $equipment->barcode }}</td>
                             <td>
-                                <span class="status-badge" style="--status-color: @safeColor($equipment->status_color)">
-                                    {{ $equipment->status_name }}
-                                </span>
+                                <div class="status-dropdown">
+                                    <button
+                                        type="button"
+                                        class="status-badge status-badge--clickable"
+                                        style="--status-color: @safeColor($equipment->status_color)"
+                                        data-equipment-id="{{ $equipment->id }}"
+                                        data-current-status="{{ $equipment->status_id }}"
+                                    >
+                                        {{ $equipment->status_name }}
+                                    </button>
+                                    <div class="status-dropdown-menu">
+                                        @foreach ($statuses as $status)
+                                            <form method="POST" action="{{ route('equipments.update-status', ['equipment' => $equipment->id]) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button
+                                                    type="submit"
+                                                    name="status_id"
+                                                    value="{{ $status->id }}"
+                                                    class="status-dropdown-item {{ $equipment->status_id == $status->id ? 'status-dropdown-item--active' : '' }}"
+                                                    style="--status-color: @safeColor($status->color)"
+                                                >
+                                                    <span class="status-dropdown-dot"></span>
+                                                    {{ $status->name }}
+                                                </button>
+                                            </form>
+                                        @endforeach
+                                    </div>
+                                </div>
                             </td>
                             <td>{{ $equipment->sector_name ?? '-' }}</td>
                             <td>{{ \Illuminate\Support\Carbon::parse($equipment->updated_at)->format('d/m/Y H:i') }}</td>
@@ -122,6 +131,61 @@
     <script src="{{ asset('js/table-row-links.js') }}?v={{ filemtime(public_path('js/table-row-links.js')) }}"></script>
     <script>
         (function () {
+            // ── Status dropdown ──
+            var activeDropdown = null;
+
+            function closeAll() {
+                if (activeDropdown) {
+                    activeDropdown.classList.remove('status-dropdown--open');
+                    activeDropdown = null;
+                }
+            }
+
+            function positionMenu(badge, menu) {
+                var rect = badge.getBoundingClientRect();
+                var menuHeight = menu.scrollHeight;
+                var spaceBelow = window.innerHeight - rect.bottom - 8;
+                var spaceAbove = rect.top - 8;
+
+                menu.style.left = rect.left + 'px';
+
+                if (spaceBelow >= menuHeight || spaceBelow >= spaceAbove) {
+                    menu.style.top = rect.bottom + 4 + 'px';
+                    menu.style.bottom = 'auto';
+                } else {
+                    menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                    menu.style.top = 'auto';
+                }
+            }
+
+            document.addEventListener('click', function (e) {
+                var badge = e.target.closest('.status-badge--clickable');
+                if (badge) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var dropdown = badge.closest('.status-dropdown');
+                    if (activeDropdown === dropdown) {
+                        closeAll();
+                    } else {
+                        closeAll();
+                        var menu = dropdown.querySelector('.status-dropdown-menu');
+                        dropdown.classList.add('status-dropdown--open');
+                        positionMenu(badge, menu);
+                        activeDropdown = dropdown;
+                    }
+                    return;
+                }
+
+                if (!e.target.closest('.status-dropdown-menu')) {
+                    closeAll();
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeAll();
+            });
+
+            // ── Delete confirmation ──
             document.addEventListener('submit', function (e) {
                 var form = e.target.closest('.js-equipment-delete');
                 if (!form) return;

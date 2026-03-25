@@ -126,7 +126,7 @@
                                     <input type="hidden" name="delete_confirmation" value="0" class="js-delete-confirmation-flag">
                                     <button
                                         type="submit"
-                                        class="table-action-delete"
+                                        class="btn-delete-icon"
                                         title="Remover modelo"
                                         aria-label="Remover modelo"
                                     >

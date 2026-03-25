@@ -59,10 +59,6 @@
 
             {{-- Card de resumo da NF --}}
             <div id="invoice-card" class="invoice-card invoice-card--idle">
-                <div class="invoice-card-header">
-                    <span id="invoice-card-icon" class="invoice-card-icon">📋</span>
-                    <span id="invoice-card-title" class="invoice-card-title">Aguardando leitura...</span>
-                </div>
                 <div class="invoice-card-body">
                     <div class="invoice-card-field">
                         <label class="panel-label">Nome Cliente</label>
@@ -173,8 +169,6 @@
             var conversionOriginal = document.getElementById('conversion-original');
             var conversionResult = document.getElementById('conversion-result');
             var invoiceCard = document.getElementById('invoice-card');
-            var invoiceCardIcon = document.getElementById('invoice-card-icon');
-            var invoiceCardTitle = document.getElementById('invoice-card-title');
             var btnRegistrar = document.getElementById('btn-registrar');
             var lookupUrl = @json(route('expedition.lookup-invoice'));
             var lookupRequestId = 0;
@@ -205,49 +199,9 @@
             hiddenDestination.name = 'cached_destination';
             form.appendChild(hiddenDestination);
 
-            // ── Audio feedback ──
-            var audioCtx = null;
-            function getAudioContext() {
-                if (!audioCtx) {
-                    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
-                }
-                return audioCtx;
-            }
-
-            function playBeep(frequency, duration, type) {
-                var ctx = getAudioContext();
-                if (!ctx) return;
-                var osc = ctx.createOscillator();
-                var gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.frequency.value = frequency;
-                osc.type = type || 'sine';
-                gain.gain.value = 0.3;
-                osc.start();
-                osc.stop(ctx.currentTime + (duration / 1000));
-            }
-
-            function beepSuccess() {
-                playBeep(880, 150, 'sine');
-                setTimeout(function () { playBeep(1100, 150, 'sine'); }, 160);
-            }
-
-            function beepWarning() {
-                playBeep(440, 200, 'triangle');
-                setTimeout(function () { playBeep(330, 300, 'triangle'); }, 220);
-            }
-
-            function beepNoInvoice() {
-                playBeep(600, 120, 'sine');
-            }
-
             // ── UI State ──
-            function setInvoiceCardState(state, title) {
+            function setInvoiceCardState(state) {
                 invoiceCard.className = 'invoice-card invoice-card--' + state;
-                invoiceCardTitle.textContent = title || '';
-                var icons = { found: '✅', 'not-found': '⚠️', loading: '🔍', multiple: '⚠️' };
-                invoiceCardIcon.textContent = icons[state] || '📋';
             }
 
             function showConversionFeedback(raw, converted) {
@@ -266,14 +220,14 @@
                     field.value = loading ? 'Buscando...' : '';
                     field.classList.toggle('is-loading', loading);
                 });
-                if (loading) setInvoiceCardState('loading', 'Buscando nota fiscal...');
+                if (loading) setInvoiceCardState('loading');
             }
 
             function clearInvoicePreview() {
                 if (invoiceCustomerInput) invoiceCustomerInput.value = '';
                 if (invoiceNumberInput) invoiceNumberInput.value = '';
                 if (invoiceDestinationInput) invoiceDestinationInput.value = '';
-                setInvoiceCardState('idle', 'Aguardando leitura...');
+                setInvoiceCardState('idle');
                 cachedInvoiceData = null;
                 hiddenInvoiceNumber.value = '';
                 hiddenCustomerName.value = '';
@@ -291,8 +245,7 @@
                     hiddenInvoiceNumber.value = lookup.invoice.numero || '';
                     hiddenCustomerName.value = lookup.invoice.cliente || '';
                     hiddenDestination.value = lookup.invoice.destino || '';
-                    setInvoiceCardState('found', 'Nota fiscal encontrada');
-                    beepSuccess();
+                    setInvoiceCardState('found');
                 } else if (lookup.invoice.multiple === true) {
                     if (invoiceCustomerInput) invoiceCustomerInput.value = '';
                     if (invoiceNumberInput) invoiceNumberInput.value = 'Multiplas NFs';
@@ -300,8 +253,7 @@
                     hiddenInvoiceNumber.value = '';
                     hiddenCustomerName.value = '';
                     hiddenDestination.value = '';
-                    setInvoiceCardState('multiple', 'Mais de uma nota encontrada — revise antes de registrar');
-                    beepWarning();
+                    setInvoiceCardState('multiple');
                 } else {
                     if (invoiceCustomerInput) invoiceCustomerInput.value = '';
                     if (invoiceNumberInput) invoiceNumberInput.value = '';
@@ -309,8 +261,7 @@
                     hiddenInvoiceNumber.value = '';
                     hiddenCustomerName.value = '';
                     hiddenDestination.value = '';
-                    setInvoiceCardState('not-found', 'Nenhuma nota fiscal encontrada para este serial');
-                    beepNoInvoice();
+                    setInvoiceCardState('not-found');
                 }
             }
 

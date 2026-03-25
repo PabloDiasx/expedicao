@@ -164,6 +164,65 @@ class EquipmentController extends Controller
         ]);
     }
 
+    public function updateStatus(Request $request, int $equipment, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+
+        $validated = $request->validate([
+            'status_id' => ['required', 'integer'],
+        ]);
+
+        $row = DB::table('equipments')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $equipment)
+            ->first(['id', 'serial_number', 'current_status_id']);
+
+        if (! $row) {
+            return back()->with('swal', [
+                'icon' => 'error',
+                'title' => 'Erro',
+                'text' => 'Equipamento nao encontrado.',
+            ]);
+        }
+
+        $status = DB::table('statuses')->where('id', (int) $validated['status_id'])->first(['id', 'name']);
+        if (! $status) {
+            return back()->with('swal', [
+                'icon' => 'error',
+                'title' => 'Erro',
+                'text' => 'Status invalido.',
+            ]);
+        }
+
+        $now = now();
+
+        DB::table('equipments')
+            ->where('id', $row->id)
+            ->update([
+                'current_status_id' => $status->id,
+                'updated_at' => $now,
+            ]);
+
+        DB::table('status_histories')->insert([
+            'tenant_id' => $tenant->id,
+            'equipment_id' => $row->id,
+            'to_status_id' => $status->id,
+            'sector_id' => null,
+            'user_id' => auth()->id(),
+            'event_source' => 'manual',
+            'notes' => 'Status alterado manualmente para ' . $status->name,
+            'changed_at' => $now,
+            'created_at' => $now,
+        ]);
+
+        return back()->with('swal', [
+            'icon' => 'success',
+            'title' => 'Status atualizado',
+            'text' => $row->serial_number . ' alterado para ' . $status->name . '.',
+        ]);
+    }
+
     public function destroy(int $equipment, TenantContext $tenantContext): RedirectResponse
     {
         $tenant = $tenantContext->tenant();

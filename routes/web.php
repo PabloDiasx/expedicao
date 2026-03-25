@@ -49,6 +49,9 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/equipamentos/{equipment}', [EquipmentController::class, 'show'])
             ->whereNumber('equipment')
             ->name('equipments.show');
+        Route::patch('/equipamentos/{equipment}/status', [EquipmentController::class, 'updateStatus'])
+            ->whereNumber('equipment')
+            ->name('equipments.update-status');
         Route::delete('/equipamentos/{equipment}', [EquipmentController::class, 'destroy'])
             ->whereNumber('equipment')
             ->name('equipments.destroy');

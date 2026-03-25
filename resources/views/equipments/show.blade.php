@@ -34,9 +34,7 @@
         </div>
 
         @if ($equipment->entry_invoice_id)
-            <p class="muted">
-                <a href="{{ route('invoices.show', ['invoice' => $equipment->entry_invoice_id]) }}">Abrir nota fiscal completa</a>
-            </p>
+            <a href="{{ route('invoices.show', ['invoice' => $equipment->entry_invoice_id]) }}" class="page-btn" style="margin-top: var(--space-2); display: inline-block;">Abrir nota fiscal completa</a>
         @endif
     </section>
 
