@@ -52,14 +52,29 @@ class InvoiceController extends Controller
         }
 
         if (! empty($validated['from'])) {
-            $query->whereDate('nomus_updated_at', '>=', Carbon::parse($validated['from'])->toDateString());
+            $query->where(function ($q) use ($validated) {
+                $date = Carbon::parse($validated['from'])->toDateString();
+                $q->whereDate('data_processamento', '>=', $date)
+                    ->orWhere(function ($q2) use ($date) {
+                        $q2->whereNull('data_processamento')
+                            ->whereDate('nomus_updated_at', '>=', $date);
+                    });
+            });
         }
 
         if (! empty($validated['to'])) {
-            $query->whereDate('nomus_updated_at', '<=', Carbon::parse($validated['to'])->toDateString());
+            $query->where(function ($q) use ($validated) {
+                $date = Carbon::parse($validated['to'])->toDateString();
+                $q->whereDate('data_processamento', '<=', $date)
+                    ->orWhere(function ($q2) use ($date) {
+                        $q2->whereNull('data_processamento')
+                            ->whereDate('nomus_updated_at', '<=', $date);
+                    });
+            });
         }
 
         $invoices = $query
+            ->orderByDesc('data_processamento')
             ->orderByDesc('nomus_updated_at')
             ->orderByDesc('external_id')
             ->paginate(30)

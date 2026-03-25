@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\ResolveTenant::class,
             \App\Http\Middleware\AuditLog::class,
+            \App\Http\Middleware\AutoSyncNomus::class,
         ]);
 
         $middleware->alias([

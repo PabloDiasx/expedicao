@@ -2,16 +2,52 @@
     <section class="panel-card">
         <div class="invoice-detail-top">
             <a href="{{ route('invoices.index') }}" class="page-btn page-btn-light">Voltar</a>
-            @if ($danfeInfo && $danfeInfo['has_file'])
-                <div class="filters-actions">
+            <div class="filters-actions">
+                @if ($danfeInfo && $danfeInfo['has_file'])
                     <a href="{{ route('invoices.danfe', $invoice) }}" target="_blank" class="page-btn">Visualizar DANFE</a>
                     <a href="{{ route('invoices.danfe', ['invoice' => $invoice->id, 'download' => 1]) }}" class="page-btn page-btn-light">Baixar DANFE</a>
-                </div>
-            @else
-                <span class="muted">DANFE indisponivel para esta nota no momento.</span>
-            @endif
+                @endif
+                @if ($invoice->status === 4)
+                    <button type="button" id="btn-carregar" class="page-btn" style="background:#F97316;">Carregar</button>
+                @endif
+            </div>
         </div>
     </section>
+
+    {{-- Modal de carregamento --}}
+    @if ($invoice->status === 4)
+    <div id="carregamento-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Novo Carregamento — NF {{ $invoice->numero }}</h3>
+                <button type="button" class="modal-close" id="carregamento-modal-close" aria-label="Fechar">&times;</button>
+            </div>
+            <form method="POST" action="{{ route('carregamentos.store') }}" class="stack-16" style="margin-top:var(--space-4);">
+                @csrf
+                <input type="hidden" name="fiscal_invoice_id" value="{{ $invoice->id }}">
+                <div>
+                    <label class="panel-label" for="motorista_nome">Nome do motorista</label>
+                    <input id="motorista_nome" name="motorista_nome" type="text" class="input" required placeholder="Nome completo">
+                </div>
+                <div>
+                    <label class="panel-label" for="motorista_documento">Documento do motorista (CPF)</label>
+                    <input id="motorista_documento" name="motorista_documento" type="text" class="input" required placeholder="000.000.000-00" maxlength="14">
+                </div>
+                <div>
+                    <label class="panel-label" for="placa_veiculo">Placa do veiculo</label>
+                    <input id="placa_veiculo" name="placa_veiculo" type="text" class="input" required placeholder="ABC-1D23" maxlength="8" style="text-transform:uppercase;">
+                </div>
+                <div>
+                    <label class="panel-label" for="motorista_empresa">Empresa do motorista</label>
+                    <input id="motorista_empresa" name="motorista_empresa" type="text" class="input" placeholder="Opcional">
+                </div>
+                <div class="filters-actions">
+                    <button type="submit" class="page-btn">Prosseguir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
 
     @if ($apiError)
         <section class="panel-card">
@@ -146,6 +182,46 @@
             </div>
 
         </section>
+    @endif
+
+    @if ($invoice->status === 4)
+    @push('scripts')
+    <script>
+        (function () {
+            var btn = document.getElementById('btn-carregar');
+            var modal = document.getElementById('carregamento-modal');
+            var closeBtn = document.getElementById('carregamento-modal-close');
+            if (!btn || !modal) return;
+
+            btn.addEventListener('click', function () { modal.style.display = ''; });
+            closeBtn.addEventListener('click', function () { modal.style.display = 'none'; });
+            modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.style.display = 'none'; });
+
+            // CPF mask: 000.000.000-00
+            var docInput = document.getElementById('motorista_documento');
+            if (docInput) {
+                docInput.addEventListener('input', function () {
+                    var v = this.value.replace(/\D/g, '').substring(0, 11);
+                    if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+                    else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+                    else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+                    this.value = v;
+                });
+            }
+
+            // Placa mask: ABC-1D23 or ABC-1234
+            var placaInput = document.getElementById('placa_veiculo');
+            if (placaInput) {
+                placaInput.addEventListener('input', function () {
+                    var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 7);
+                    if (v.length > 3) v = v.substring(0, 3) + '-' + v.substring(3);
+                    this.value = v;
+                });
+            }
+        })();
+    </script>
+    @endpush
     @endif
 </x-layouts.app>
 

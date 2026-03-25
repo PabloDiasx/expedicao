@@ -102,7 +102,9 @@
                 <tbody>
                     @forelse ($models as $model)
                         <tr>
-                            <td>{{ $model->name }}</td>
+                            <td>
+                                <button type="button" class="row-link-anchor js-edit-model" style="border:none;background:none;cursor:pointer;font-family:var(--font);padding:0;" data-id="{{ $model->id }}" data-name="{{ $model->name }}" data-category="{{ $model->category }}" data-active="{{ $model->is_active ? '1' : '0' }}">{{ $model->name }}</button>
+                            </td>
                             <td>{{ $model->category ?: '-' }}</td>
                             <td>
                                 <span
@@ -169,4 +171,63 @@
             </div>
         @endif
     </section>
+
+    {{-- Modal de edicao de modelo --}}
+    <div id="model-edit-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Editar modelo</h3>
+                <button type="button" class="modal-close" id="model-edit-close" aria-label="Fechar">&times;</button>
+            </div>
+            <form id="model-edit-form" method="POST" class="stack-16" style="margin-top:var(--space-4);">
+                @csrf
+                @method('PUT')
+                <div>
+                    <label class="panel-label" for="edit_model_name">Nome</label>
+                    <input id="edit_model_name" name="name" type="text" class="input" required maxlength="150">
+                </div>
+                <div>
+                    <label class="panel-label" for="edit_model_category">Categoria</label>
+                    <input id="edit_model_category" name="category" type="text" class="input" maxlength="100">
+                </div>
+                <div>
+                    <label class="panel-label" for="edit_model_active">Ativo</label>
+                    <select id="edit_model_active" name="is_active" class="chart-select">
+                        <option value="1">Sim</option>
+                        <option value="0">Nao</option>
+                    </select>
+                </div>
+                <div class="filters-actions">
+                    <button type="submit" class="page-btn">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+        (function () {
+            var modal = document.getElementById('model-edit-modal');
+            var form = document.getElementById('model-edit-form');
+            var closeBtn = document.getElementById('model-edit-close');
+            var baseUrl = @json(route('equipment-models.update', ['model' => '___MID___']));
+
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.js-edit-model');
+                if (!btn) return;
+                e.preventDefault();
+
+                form.action = baseUrl.replace('___MID___', btn.dataset.id);
+                document.getElementById('edit_model_name').value = btn.dataset.name;
+                document.getElementById('edit_model_category').value = btn.dataset.category || '';
+                document.getElementById('edit_model_active').value = btn.dataset.active;
+                modal.style.display = '';
+            });
+
+            closeBtn.addEventListener('click', function () { modal.style.display = 'none'; });
+            modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.style.display = 'none'; });
+        })();
+    </script>
+    @endpush
 </x-layouts.app>

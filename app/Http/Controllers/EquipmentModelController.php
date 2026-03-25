@@ -101,6 +101,40 @@ class EquipmentModelController extends Controller
             ->with('status', 'Modelo cadastrado com sucesso.');
     }
 
+    public function update(Request $request, int $model, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'barcode_prefix' => ['nullable', 'string', 'max:20'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $row = DB::table('equipment_models')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $model)
+            ->first(['id']);
+
+        if (! $row) {
+            return back()->with('swal', ['icon' => 'error', 'title' => 'Erro', 'text' => 'Modelo nao encontrado.']);
+        }
+
+        DB::table('equipment_models')
+            ->where('id', $row->id)
+            ->update([
+                'name' => trim($validated['name']),
+                'category' => isset($validated['category']) ? trim($validated['category']) : null,
+                'barcode_prefix' => isset($validated['barcode_prefix']) ? trim($validated['barcode_prefix']) : null,
+                'is_active' => (bool) ($validated['is_active'] ?? false),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('swal', ['icon' => 'success', 'title' => 'Atualizado', 'text' => 'Modelo atualizado com sucesso.']);
+    }
+
     public function destroy(Request $request, int $model, TenantContext $tenantContext): RedirectResponse
     {
         $tenant = $tenantContext->tenant();

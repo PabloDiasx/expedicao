@@ -15,33 +15,72 @@ use Illuminate\View\View;
 
 class ExpeditionController extends Controller
 {
-    public function index(TenantContext $tenantContext): View
+    public function index(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
         abort_unless($tenant, 404);
 
-        $recentDispatches = DB::table('status_histories as sh')
-            ->join('equipments as e', 'e.id', '=', 'sh.equipment_id')
-            ->join('statuses as st', 'st.id', '=', 'sh.to_status_id')
-            ->leftJoin('users as u', 'u.id', '=', 'sh.user_id')
-            ->where('sh.tenant_id', $tenant->id)
-            ->where('sh.event_source', EventSource::ScannerExpedicao->value)
-            ->orderByDesc('sh.changed_at')
-            ->limit(15)
-            ->get([
-                'e.serial_number',
-                'e.barcode',
-                'e.entry_invoice_number',
-                'st.name as status_name',
-                'st.color as status_color',
-                'u.name as user_name',
-                'sh.changed_at',
-                'sh.notes',
-            ]);
+        $etapa = $request->query('etapa', '');
 
-        return view('expedition.index', [
-            'recentDispatches' => $recentDispatches,
-        ]);
+        if ($etapa === 'carregamento') {
+            $search = trim((string) $request->query('q', ''));
+
+            $carregamentosQuery = DB::table('carregamentos as c')
+                ->join('fiscal_invoices as fi', 'fi.id', '=', 'c.fiscal_invoice_id')
+                ->leftJoin('users as u', 'u.id', '=', 'c.user_id')
+                ->where('c.tenant_id', $tenant->id);
+
+            if ($search !== '') {
+                $carregamentosQuery->where(function ($q) use ($search) {
+                    $q->where('c.motorista_nome', 'like', '%'.$search.'%')
+                        ->orWhere('c.placa_veiculo', 'like', '%'.$search.'%')
+                        ->orWhere('fi.numero', 'like', '%'.$search.'%')
+                        ->orWhere('c.motorista_empresa', 'like', '%'.$search.'%');
+                });
+            }
+
+            $carregamentos = $carregamentosQuery
+                ->orderByDesc('c.created_at')
+                ->limit(100)
+                ->get([
+                    'c.id',
+                    'c.motorista_nome',
+                    'c.placa_veiculo',
+                    'c.motorista_empresa',
+                    'c.status',
+                    'c.created_at',
+                    'fi.numero as invoice_numero',
+                    'u.name as user_name',
+                ]);
+
+            // Count conferidos per carregamento
+            $carregamentoIds = $carregamentos->pluck('id')->toArray();
+            $progressData = [];
+            if ($carregamentoIds) {
+                $progress = DB::table('carregamento_items')
+                    ->select('carregamento_id')
+                    ->selectRaw('COUNT(*) as total')
+                    ->selectRaw('SUM(CASE WHEN conferido = 1 THEN 1 ELSE 0 END) as conferidos')
+                    ->whereIn('carregamento_id', $carregamentoIds)
+                    ->groupBy('carregamento_id')
+                    ->get();
+
+                foreach ($progress as $p) {
+                    $progressData[$p->carregamento_id] = [
+                        'total' => (int) $p->total,
+                        'conferidos' => (int) $p->conferidos,
+                    ];
+                }
+            }
+
+            return view('expedition.carregamento', [
+                'carregamentos' => $carregamentos,
+                'progressData' => $progressData,
+                'search' => $search,
+            ]);
+        }
+
+        return view('expedition.index');
     }
 
     public function store(
@@ -77,7 +116,7 @@ class ExpeditionController extends Controller
         }
 
         $dispatchStatusId = DB::table('statuses')
-            ->where('code', 'carregado')
+            ->where('code', 'montado')
             ->value('id');
 
         $dispatchSectorId = DB::table('sectors')
@@ -87,7 +126,7 @@ class ExpeditionController extends Controller
 
         if (! $dispatchStatusId || ! $dispatchSectorId) {
             return back()->withErrors([
-                'barcode' => 'Configuracao de entrada incompleta. Verifique status "Carregado" e setor padrao.',
+                'barcode' => 'Configuracao de entrada incompleta. Verifique status "Montado" e setor padrao.',
             ])->withInput();
         }
 
@@ -137,8 +176,8 @@ class ExpeditionController extends Controller
                     'result' => TransitionResult::NoChange->value,
                     'equipment_id' => $ensuredEquipmentId,
                     'serial_number' => (string) $validated['barcode'],
-                    'status_name' => 'Carregado',
-                    'status_code' => 'carregado',
+                    'status_name' => 'Montado',
+                    'status_code' => 'montado',
                 ];
             } else {
                 return back()->withInput($validated)->with('swal', [
@@ -199,18 +238,14 @@ class ExpeditionController extends Controller
                 $message .= ' Destino: '.$invoiceLookup['destination'].'.';
             }
 
-            return redirect()->route('equipments.index', [
-                'q' => $serialNumber,
-            ])->with('swal', [
+            return redirect()->route('expedition.index')->with('swal', [
                 'icon' => 'success',
                 'title' => 'Entrada registrada',
                 'text' => $message,
             ]);
         }
 
-        return redirect()->route('equipments.index', [
-            'q' => $serialNumber,
-        ])->with('swal', [
+        return redirect()->route('expedition.index')->with('swal', [
             'icon' => 'info',
             'title' => 'Entrada registrada sem NF',
             'text' => 'Equipamento '.$result['serial_number'].' registrado na entrada'.($equipmentCreated ? ' e cadastrado automaticamente' : '').'. NF ainda nao encontrada para este serial.',

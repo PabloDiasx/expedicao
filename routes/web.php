@@ -7,6 +7,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentModelController;
 use App\Http\Controllers\ExpeditionController;
+use App\Http\Controllers\CarregamentoController;
+use App\Http\Controllers\HistoricoController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ProductionController;
 use Illuminate\Support\Facades\Route;
@@ -45,10 +47,14 @@ Route::middleware('auth')->group(function (): void {
 
     // Supervisor+ — full read access
     Route::middleware('role:supervisor')->group(function (): void {
+        Route::get('/historicos', [HistoricoController::class, 'index'])->name('historicos.index');
         Route::get('/equipamentos', [EquipmentController::class, 'index'])->name('equipments.index');
         Route::get('/equipamentos/{equipment}', [EquipmentController::class, 'show'])
             ->whereNumber('equipment')
             ->name('equipments.show');
+        Route::put('/equipamentos/{equipment}', [EquipmentController::class, 'update'])
+            ->whereNumber('equipment')
+            ->name('equipments.update');
         Route::patch('/equipamentos/{equipment}/status', [EquipmentController::class, 'updateStatus'])
             ->whereNumber('equipment')
             ->name('equipments.update-status');
@@ -62,12 +68,32 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/notas-fiscais/{invoice}/danfe', [InvoiceController::class, 'danfe'])
             ->whereNumber('invoice')
             ->name('invoices.danfe');
+        Route::post('/carregamentos', [CarregamentoController::class, 'store'])->name('carregamentos.store');
+        Route::get('/carregamentos/{carregamento}', [CarregamentoController::class, 'show'])
+            ->whereNumber('carregamento')
+            ->name('carregamentos.show');
+        Route::post('/carregamentos/{carregamento}/scan', [CarregamentoController::class, 'scan'])
+            ->whereNumber('carregamento')
+            ->middleware('throttle:120,1')
+            ->name('carregamentos.scan');
+        Route::put('/carregamentos/{carregamento}', [CarregamentoController::class, 'update'])
+            ->whereNumber('carregamento')
+            ->name('carregamentos.update');
+        Route::delete('/carregamentos/{carregamento}', [CarregamentoController::class, 'destroy'])
+            ->whereNumber('carregamento')
+            ->name('carregamentos.destroy');
+        Route::post('/carregamentos/{carregamento}/finalizar', [CarregamentoController::class, 'finalizar'])
+            ->whereNumber('carregamento')
+            ->name('carregamentos.finalizar');
     });
 
     // Admin only — manage models
     Route::middleware('role:admin')->group(function (): void {
         Route::get('/modelos-equipamentos', [EquipmentModelController::class, 'index'])->name('equipment-models.index');
         Route::post('/modelos-equipamentos', [EquipmentModelController::class, 'store'])->name('equipment-models.store');
+        Route::put('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'update'])
+            ->whereNumber('model')
+            ->name('equipment-models.update');
         Route::delete('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'destroy'])
             ->whereNumber('model')
             ->name('equipment-models.destroy');

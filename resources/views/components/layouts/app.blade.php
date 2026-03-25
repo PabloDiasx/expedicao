@@ -101,6 +101,14 @@
                 </a>
 
                 @if ($isSupervisor)
+                <a href="{{ route('historicos.index') }}" class="nav-item {{ request()->routeIs('historicos.*') ? 'is-active' : '' }}">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+                        <path d="M12 7V12L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    <span>Historicos</span>
+                </a>
+
                 <a href="{{ route('invoices.index') }}" class="nav-item {{ request()->routeIs('invoices.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M6 3H14L18 7V21H6V3Z" stroke="currentColor" stroke-width="2"></path>

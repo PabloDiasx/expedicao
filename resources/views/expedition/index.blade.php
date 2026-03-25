@@ -29,32 +29,17 @@
                 <span id="conversion-result" class="conversion-result"></span>
             </div>
 
-            <div class="form-grid-2">
-                <div>
-                    <label class="panel-label" for="device_identifier">Coletor</label>
-                    <input
-                        id="device_identifier"
-                        name="device_identifier"
-                        type="text"
-                        class="input"
-                        value="{{ old('device_identifier') }}"
-                        maxlength="80"
-                        placeholder="Ex: COLETOR-EXP-01"
-                    >
-                </div>
-
-                <div>
-                    <label class="panel-label" for="notes">Observacao</label>
-                    <input
-                        id="notes"
-                        name="notes"
-                        type="text"
-                        class="input"
-                        value="{{ old('notes') }}"
-                        maxlength="500"
-                        placeholder="Opcional"
-                    >
-                </div>
+            <div>
+                <label class="panel-label" for="notes">Observacao</label>
+                <input
+                    id="notes"
+                    name="notes"
+                    type="text"
+                    class="input"
+                    value="{{ old('notes') }}"
+                    maxlength="500"
+                    placeholder="Opcional"
+                >
             </div>
 
             {{-- Card de resumo da NF --}}
@@ -110,51 +95,6 @@
         </form>
     </section>
 
-    <section class="panel-card">
-        <h2 class="section-title">Ultimas entradas</h2>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Data/Hora</th>
-                        <th>Serial</th>
-                        <th>Codigo de barras</th>
-                        <th>NF</th>
-                        <th>Status</th>
-                        <th>Usuario</th>
-                        <th>Observacao</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($recentDispatches as $item)
-                        <tr>
-                            <td>{{ \Illuminate\Support\Carbon::parse($item->changed_at)->format('d/m/Y H:i') }}</td>
-                            <td>{{ $item->serial_number }}</td>
-                            <td>{{ $item->barcode }}</td>
-                            <td>
-                                @if($item->entry_invoice_number)
-                                    <span class="status-badge" style="--status-color: #22c55e">{{ $item->entry_invoice_number }}</span>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            <td>
-                                <span class="status-badge" style="--status-color: @safeColor($item->status_color)">
-                                    {{ $item->status_name }}
-                                </span>
-                            </td>
-                            <td>{{ $item->user_name ?? '-' }}</td>
-                            <td>{{ $item->notes ?? '-' }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="empty-cell">Nenhuma entrada registrada ainda.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </section>
 
     @push('scripts')
     <script src="{{ asset('js/barcode-converter.js') }}?v={{ filemtime(public_path('js/barcode-converter.js')) }}"></script>
@@ -319,14 +259,26 @@
                     if (e.target === btnRegistrar) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    if (e.target === barcodeInput) runConversionAndLookup(true);
+                    if (e.target === barcodeInput) {
+                        runConversionAndLookup(true);
+                        // Seleciona todo o texto para que o proximo scan substitua
+                        barcodeInput.select();
+                    }
                 }
             });
 
             barcodeInput.addEventListener('change', function () { runConversionAndLookup(false); });
-            barcodeInput.addEventListener('blur', function () { runConversionAndLookup(false); });
 
             btnRegistrar.addEventListener('click', function () { submitIntentional = true; });
+
+            // Manter foco sempre no campo barcode
+            barcodeInput.addEventListener('blur', function () {
+                setTimeout(function () {
+                    if (document.activeElement !== btnRegistrar) {
+                        barcodeInput.focus();
+                    }
+                }, 100);
+            });
 
             form.addEventListener('submit', function (e) {
                 if (!submitIntentional) { e.preventDefault(); return; }
