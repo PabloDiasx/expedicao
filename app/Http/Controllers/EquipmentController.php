@@ -134,6 +134,9 @@ class EquipmentController extends Controller
                 'e.entry_customer_name',
                 'e.entry_destination',
                 'e.entry_invoice_linked_at',
+                'e.vendedor',
+                'e.cliente_venda',
+                'e.destino_venda',
                 'em.name as model_name',
                 'st.name as status_name',
                 'st.color as status_color',
@@ -167,12 +170,9 @@ class EquipmentController extends Controller
         abort_unless($tenant, 404);
 
         $validated = $request->validate([
-            'serial_number' => ['required', 'string', 'max:80'],
-            'barcode' => ['required', 'string', 'max:120'],
-            'equipment_model_id' => ['required', 'integer'],
-            'current_sector_id' => ['nullable', 'integer'],
-            'manufactured_at' => ['nullable', 'date'],
-            'assembled_at' => ['nullable', 'date'],
+            'vendedor' => ['nullable', 'string', 'max:150'],
+            'cliente_venda' => ['nullable', 'string', 'max:150'],
+            'destino_venda' => ['nullable', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -192,12 +192,9 @@ class EquipmentController extends Controller
         DB::table('equipments')
             ->where('id', $row->id)
             ->update([
-                'serial_number' => trim($validated['serial_number']),
-                'barcode' => trim($validated['barcode']),
-                'equipment_model_id' => (int) $validated['equipment_model_id'],
-                'current_sector_id' => ! empty($validated['current_sector_id']) ? (int) $validated['current_sector_id'] : null,
-                'manufactured_at' => $validated['manufactured_at'] ?? null,
-                'assembled_at' => $validated['assembled_at'] ?? null,
+                'vendedor' => $validated['vendedor'] ?? null,
+                'cliente_venda' => $validated['cliente_venda'] ?? null,
+                'destino_venda' => $validated['destino_venda'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'updated_at' => now(),
             ]);

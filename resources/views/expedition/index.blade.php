@@ -1,5 +1,4 @@
 <x-layouts.app :title="'Entrada'">
-    {{-- DEBUG removido --}}
     <section class="panel-card">
         <h2 class="section-title">Leitura para entrada</h2>
 
@@ -29,6 +28,22 @@
                 <span id="conversion-result" class="conversion-result"></span>
             </div>
 
+            {{-- Resultado da NF --}}
+            <div id="invoice-card" class="entrada-nf-grid" style="display:none;">
+                <div class="entrada-nf-item">
+                    <span class="entrada-nf-label">Cliente</span>
+                    <span id="entry_customer_name" class="entrada-nf-value">-</span>
+                </div>
+                <div class="entrada-nf-item">
+                    <span class="entrada-nf-label">N° Nota</span>
+                    <span id="entry_invoice_number" class="entrada-nf-value">-</span>
+                </div>
+                <div class="entrada-nf-item">
+                    <span class="entrada-nf-label">Destino</span>
+                    <span id="entry_destination" class="entrada-nf-value">-</span>
+                </div>
+            </div>
+
             <div>
                 <label class="panel-label" for="notes">Observacao</label>
                 <input
@@ -40,53 +55,6 @@
                     maxlength="500"
                     placeholder="Opcional"
                 >
-            </div>
-
-            {{-- Card de resumo da NF --}}
-            <div id="invoice-card" class="invoice-card invoice-card--idle">
-                <div class="invoice-card-body">
-                    <div class="invoice-card-field">
-                        <label class="panel-label">Nome Cliente</label>
-                        <input
-                            id="entry_customer_name"
-                            name="entry_customer_name"
-                            type="text"
-                            class="input"
-                            value=""
-                            readonly
-                            tabindex="-1"
-                            placeholder="-"
-                        >
-                    </div>
-
-                    <div class="invoice-card-field">
-                        <label class="panel-label">N° Nota</label>
-                        <input
-                            id="entry_invoice_number"
-                            name="entry_invoice_number"
-                            type="text"
-                            class="input"
-                            value=""
-                            readonly
-                            tabindex="-1"
-                            placeholder="-"
-                        >
-                    </div>
-
-                    <div class="invoice-card-field">
-                        <label class="panel-label">Destino</label>
-                        <input
-                            id="entry_destination"
-                            name="entry_destination"
-                            type="text"
-                            class="input"
-                            value=""
-                            readonly
-                            tabindex="-1"
-                            placeholder="-"
-                        >
-                    </div>
-                </div>
             </div>
 
             <div class="filters-actions">
@@ -140,10 +108,6 @@
             form.appendChild(hiddenDestination);
 
             // ── UI State ──
-            function setInvoiceCardState(state) {
-                invoiceCard.className = 'invoice-card invoice-card--' + state;
-            }
-
             function showConversionFeedback(raw, converted) {
                 if (conversionFeedback && raw !== converted) {
                     conversionOriginal.textContent = raw;
@@ -155,19 +119,19 @@
             }
 
             function setPreviewLoading(loading) {
-                [invoiceCustomerInput, invoiceNumberInput, invoiceDestinationInput].forEach(function (field) {
-                    if (!field) return;
-                    field.value = loading ? 'Buscando...' : '';
-                    field.classList.toggle('is-loading', loading);
-                });
-                if (loading) setInvoiceCardState('loading');
+                if (loading) {
+                    invoiceCard.style.display = '';
+                    invoiceCustomerInput.textContent = 'Buscando...';
+                    invoiceNumberInput.textContent = '';
+                    invoiceDestinationInput.textContent = '';
+                }
             }
 
             function clearInvoicePreview() {
-                if (invoiceCustomerInput) invoiceCustomerInput.value = '';
-                if (invoiceNumberInput) invoiceNumberInput.value = '';
-                if (invoiceDestinationInput) invoiceDestinationInput.value = '';
-                setInvoiceCardState('idle');
+                invoiceCard.style.display = 'none';
+                invoiceCustomerInput.textContent = '-';
+                invoiceNumberInput.textContent = '-';
+                invoiceDestinationInput.textContent = '-';
                 cachedInvoiceData = null;
                 hiddenInvoiceNumber.value = '';
                 hiddenCustomerName.value = '';
@@ -178,30 +142,29 @@
                 if (!lookup || !lookup.invoice) { clearInvoicePreview(); return; }
                 cachedInvoiceData = lookup;
 
+                invoiceCard.style.display = '';
+
                 if (lookup.invoice.found === true) {
-                    if (invoiceCustomerInput) invoiceCustomerInput.value = lookup.invoice.cliente || '';
-                    if (invoiceNumberInput) invoiceNumberInput.value = lookup.invoice.numero || '';
-                    if (invoiceDestinationInput) invoiceDestinationInput.value = lookup.invoice.destino || '';
+                    invoiceCustomerInput.textContent = lookup.invoice.cliente || '-';
+                    invoiceNumberInput.textContent = lookup.invoice.numero || '-';
+                    invoiceDestinationInput.textContent = lookup.invoice.destino || '-';
                     hiddenInvoiceNumber.value = lookup.invoice.numero || '';
                     hiddenCustomerName.value = lookup.invoice.cliente || '';
                     hiddenDestination.value = lookup.invoice.destino || '';
-                    setInvoiceCardState('found');
                 } else if (lookup.invoice.multiple === true) {
-                    if (invoiceCustomerInput) invoiceCustomerInput.value = '';
-                    if (invoiceNumberInput) invoiceNumberInput.value = 'Multiplas NFs';
-                    if (invoiceDestinationInput) invoiceDestinationInput.value = '';
+                    invoiceCustomerInput.textContent = '';
+                    invoiceNumberInput.textContent = 'Multiplas NFs';
+                    invoiceDestinationInput.textContent = '';
                     hiddenInvoiceNumber.value = '';
                     hiddenCustomerName.value = '';
                     hiddenDestination.value = '';
-                    setInvoiceCardState('multiple');
                 } else {
-                    if (invoiceCustomerInput) invoiceCustomerInput.value = '';
-                    if (invoiceNumberInput) invoiceNumberInput.value = '';
-                    if (invoiceDestinationInput) invoiceDestinationInput.value = '';
+                    invoiceCustomerInput.textContent = 'Sem NF';
+                    invoiceNumberInput.textContent = '-';
+                    invoiceDestinationInput.textContent = '-';
                     hiddenInvoiceNumber.value = '';
                     hiddenCustomerName.value = '';
                     hiddenDestination.value = '';
-                    setInvoiceCardState('not-found');
                 }
             }
 
@@ -244,6 +207,10 @@
                 if (parsed.converted) {
                     barcodeInput.value = parsed.serial;
                     showConversionFeedback(parsed.raw, parsed.serial);
+                    // Salvar codigo de barras original na observacao
+                    if (notesInput && notesInput.value.trim() === '') {
+                        notesInput.value = parsed.raw;
+                    }
                 } else {
                     showConversionFeedback(parsed.raw, parsed.serial);
                 }

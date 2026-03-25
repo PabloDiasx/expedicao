@@ -27,6 +27,17 @@
         </div>
     </section>
 
+    @if ($equipment->vendedor || $equipment->cliente_venda || $equipment->destino_venda)
+    <section class="panel-card">
+        <h2 class="section-title">Dados de venda</h2>
+        <div class="invoice-kv-grid">
+            <div><strong>Vendedor:</strong> {{ $equipment->vendedor ?? '-' }}</div>
+            <div><strong>Cliente:</strong> {{ $equipment->cliente_venda ?? '-' }}</div>
+            <div><strong>Destino:</strong> {{ $equipment->destino_venda ?? '-' }}</div>
+        </div>
+    </section>
+    @endif
+
     <section class="panel-card">
         <h2 class="section-title">Dados da Nota Fiscal (Entrada)</h2>
 
@@ -44,10 +55,6 @@
         @endif
     </section>
 
-    <section class="panel-card">
-        <a href="{{ route('historicos.index', ['q' => $equipment->serial_number]) }}" class="page-btn page-btn-light">Ver historico completo</a>
-    </section>
-
     {{-- Modal de edicao --}}
     <div id="edit-modal" class="modal-overlay" style="display:none;">
         <div class="modal-card" style="max-width:540px;">
@@ -59,41 +66,16 @@
                 @csrf
                 @method('PUT')
                 <div>
-                    <label class="panel-label" for="edit_serial">Numero de serie</label>
-                    <input id="edit_serial" name="serial_number" type="text" class="input" value="{{ $equipment->serial_number }}" required maxlength="80">
+                    <label class="panel-label" for="edit_vendedor">Vendedor</label>
+                    <input id="edit_vendedor" name="vendedor" type="text" class="input" value="{{ $equipment->vendedor }}" maxlength="150" placeholder="Nome do vendedor">
                 </div>
                 <div>
-                    <label class="panel-label" for="edit_barcode">Codigo de barras</label>
-                    <input id="edit_barcode" name="barcode" type="text" class="input" value="{{ $equipment->barcode }}" required maxlength="120">
+                    <label class="panel-label" for="edit_cliente_venda">Cliente (venda)</label>
+                    <input id="edit_cliente_venda" name="cliente_venda" type="text" class="input" value="{{ $equipment->cliente_venda }}" maxlength="150" placeholder="Para quem vai ser vendido">
                 </div>
-                <div class="form-grid-2">
-                    <div>
-                        <label class="panel-label" for="edit_model">Modelo</label>
-                        <select id="edit_model" name="equipment_model_id" class="chart-select" required>
-                            @foreach ($models as $model)
-                                <option value="{{ $model->id }}" {{ $equipment->equipment_model_id == $model->id ? 'selected' : '' }}>{{ $model->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="panel-label" for="edit_sector">Setor</label>
-                        <select id="edit_sector" name="current_sector_id" class="chart-select">
-                            <option value="">Nenhum</option>
-                            @foreach ($sectors as $sector)
-                                <option value="{{ $sector->id }}" {{ $equipment->current_sector_id == $sector->id ? 'selected' : '' }}>{{ $sector->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-                <div class="form-grid-2">
-                    <div>
-                        <label class="panel-label" for="edit_manufactured">Fabricado em</label>
-                        <input id="edit_manufactured" name="manufactured_at" type="date" class="input" value="{{ $equipment->manufactured_at ? \Illuminate\Support\Carbon::parse($equipment->manufactured_at)->format('Y-m-d') : '' }}">
-                    </div>
-                    <div>
-                        <label class="panel-label" for="edit_assembled">Montado em</label>
-                        <input id="edit_assembled" name="assembled_at" type="date" class="input" value="{{ $equipment->assembled_at ? \Illuminate\Support\Carbon::parse($equipment->assembled_at)->format('Y-m-d') : '' }}">
-                    </div>
+                <div>
+                    <label class="panel-label" for="edit_destino_venda">Destino (venda)</label>
+                    <input id="edit_destino_venda" name="destino_venda" type="text" class="input" value="{{ $equipment->destino_venda }}" maxlength="200" placeholder="Para onde vai">
                 </div>
                 <div>
                     <label class="panel-label" for="edit_notes">Observacoes</label>
