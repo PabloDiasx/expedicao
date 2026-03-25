@@ -9,6 +9,12 @@ use Throwable;
 
 class InvoiceSerialLookupService
 {
+    private const SERIAL_LOOKUP_TTL_MINUTES = 20;
+
+    private const INVOICE_SUMMARY_TTL_MINUTES = 360;
+
+    /** Status code for authorized invoices (notas autorizadas). */
+    private const STATUS_AUTORIZADA = 4;
     /**
      * @return array{
      *     matched: bool,
@@ -35,7 +41,7 @@ class InvoiceSerialLookupService
             ->where('tenant_id', $tenantId)
             ->max('updated_at');
 
-        $versionKey = $version ? (string) strtotime((string) $version) : '0';
+        $versionKey = $version ? md5((string) $version) : '0';
         $cacheKey = sprintf(
             'invoice:serial-lookup:%d:%s:%s:%s',
             $tenantId,
@@ -44,7 +50,7 @@ class InvoiceSerialLookupService
             $versionKey
         );
 
-        return Cache::remember($cacheKey, now()->addMinutes(20), function () use ($tenantId, $serialRaw, $serialKey, $serialFinalDigits): array {
+        return Cache::remember($cacheKey, now()->addMinutes(self::SERIAL_LOOKUP_TTL_MINUTES), function () use ($tenantId, $serialRaw, $serialKey, $serialFinalDigits): array {
             return $this->resolveSerialLookup($tenantId, $serialRaw, $serialKey, $serialFinalDigits);
         });
     }
@@ -69,6 +75,7 @@ class InvoiceSerialLookupService
     ): array {
         $candidates = FiscalInvoice::query()
             ->where('tenant_id', $tenantId)
+            ->where('status', self::STATUS_AUTORIZADA)
             ->where('payload', 'like', '%'.$serialRaw.'%')
             ->orderByDesc('nomus_updated_at')
             ->orderByDesc('external_id')
@@ -78,6 +85,7 @@ class InvoiceSerialLookupService
         if ($candidates->isEmpty()) {
             $candidates = FiscalInvoice::query()
                 ->where('tenant_id', $tenantId)
+                ->where('status', self::STATUS_AUTORIZADA)
                 ->orderByDesc('nomus_updated_at')
                 ->orderByDesc('external_id')
                 ->limit(400)
@@ -157,7 +165,7 @@ class InvoiceSerialLookupService
             ?? 0;
         $cacheKey = sprintf('invoice:serial-summary:%d:%d', (int) $invoice->id, (int) $version);
 
-        return Cache::remember($cacheKey, now()->addHours(12), function () use ($invoice): array {
+        return Cache::remember($cacheKey, now()->addMinutes(self::INVOICE_SUMMARY_TTL_MINUTES), function () use ($invoice): array {
             $payload = $invoice->payload;
             $xmlRaw = is_array($payload) ? ($payload['xml'] ?? null) : null;
 

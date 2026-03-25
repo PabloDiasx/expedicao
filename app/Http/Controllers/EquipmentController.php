@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\Tenancy\TenantContext;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -160,6 +161,43 @@ class EquipmentController extends Controller
         return view('equipments.show', [
             'equipment' => $equipmentRow,
             'recentTransitions' => $recentTransitions,
+        ]);
+    }
+
+    public function destroy(int $equipment, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+
+        $row = DB::table('equipments')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $equipment)
+            ->first(['id', 'serial_number']);
+
+        if (! $row) {
+            return back()->with('swal', [
+                'icon' => 'error',
+                'title' => 'Erro',
+                'text' => 'Equipamento nao encontrado.',
+            ]);
+        }
+
+        try {
+            DB::table('status_histories')->where('equipment_id', $row->id)->delete();
+            DB::table('barcode_reads')->where('equipment_id', $row->id)->delete();
+            DB::table('equipments')->where('id', $row->id)->delete();
+        } catch (\Throwable $e) {
+            return back()->with('swal', [
+                'icon' => 'error',
+                'title' => 'Erro ao remover',
+                'text' => 'Nao foi possivel remover o equipamento. Ele possui registros vinculados.',
+            ]);
+        }
+
+        return back()->with('swal', [
+            'icon' => 'success',
+            'title' => 'Removido',
+            'text' => 'Equipamento ' . $row->serial_number . ' removido com sucesso.',
         ]);
     }
 }

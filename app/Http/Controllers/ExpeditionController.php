@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EventSource;
+use App\Enums\TransitionResult;
 use App\Support\Invoices\InvoiceSerialLookupService;
 use App\Support\Operations\EquipmentStatusService;
 use App\Support\Tenancy\TenantContext;
@@ -23,12 +25,13 @@ class ExpeditionController extends Controller
             ->join('statuses as st', 'st.id', '=', 'sh.to_status_id')
             ->leftJoin('users as u', 'u.id', '=', 'sh.user_id')
             ->where('sh.tenant_id', $tenant->id)
-            ->where('sh.event_source', 'scanner_expedicao')
+            ->where('sh.event_source', EventSource::ScannerExpedicao->value)
             ->orderByDesc('sh.changed_at')
             ->limit(15)
             ->get([
                 'e.serial_number',
                 'e.barcode',
+                'e.entry_invoice_number',
                 'st.name as status_name',
                 'st.color as status_color',
                 'u.name as user_name',
@@ -111,10 +114,10 @@ class ExpeditionController extends Controller
             sectorId: (int) $dispatchSectorId,
             deviceIdentifier: $validated['device_identifier'] ?? null,
             notes: $validated['notes'] ?? null,
-            eventSource: 'scanner_expedicao'
+            eventSource: EventSource::ScannerExpedicao->value
         );
 
-        if ($result['result'] === 'not_found') {
+        if ($result['result'] === TransitionResult::NotFound->value) {
             $result = $statusService->applyBarcodeTransition(
                 tenantId: (int) $tenant->id,
                 userId: auth()->id(),
@@ -123,15 +126,15 @@ class ExpeditionController extends Controller
                 sectorId: (int) $dispatchSectorId,
                 deviceIdentifier: $validated['device_identifier'] ?? null,
                 notes: $validated['notes'] ?? null,
-                eventSource: 'scanner_expedicao'
+                eventSource: EventSource::ScannerExpedicao->value
             );
         }
 
-        if ($result['result'] === 'not_found') {
+        if ($result['result'] === TransitionResult::NotFound->value) {
             $ensuredEquipmentId = isset($ensuredEquipment['equipment_id']) ? (int) $ensuredEquipment['equipment_id'] : 0;
             if ($ensuredEquipmentId > 0) {
                 $result = [
-                    'result' => 'no_change',
+                    'result' => TransitionResult::NoChange->value,
                     'equipment_id' => $ensuredEquipmentId,
                     'serial_number' => (string) $validated['barcode'],
                     'status_name' => 'Carregado',
@@ -146,7 +149,7 @@ class ExpeditionController extends Controller
             }
         }
 
-        if (! in_array($result['result'], ['updated', 'no_change'], true)) {
+        if (! in_array($result['result'], [TransitionResult::Updated->value, TransitionResult::NoChange->value], true)) {
             return back()->withErrors([
                 'barcode' => 'Nao foi possivel concluir a entrada.',
             ])->withInput($validated);
@@ -281,23 +284,6 @@ class ExpeditionController extends Controller
         }
 
         $validated['barcode'] = $convertedSerial;
-
-        $conversionLabel = sprintf(
-            'Codigo lido: %s | Serial convertido: %s',
-            $normalizedBarcode,
-            $convertedSerial
-        );
-
-        $notes = trim((string) ($validated['notes'] ?? ''));
-        if ($notes === '') {
-            $validated['notes'] = $conversionLabel;
-
-            return $validated;
-        }
-
-        if (! str_contains($notes, $conversionLabel)) {
-            $validated['notes'] = $notes.' | '.$conversionLabel;
-        }
 
         return $validated;
     }

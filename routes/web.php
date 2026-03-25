@@ -30,15 +30,9 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/equipamentos', [EquipmentController::class, 'index'])->name('equipments.index');
-    Route::get('/equipamentos/{equipment}', [EquipmentController::class, 'show'])
-        ->whereNumber('equipment')
-        ->name('equipments.show');
-    Route::get('/modelos-equipamentos', [EquipmentModelController::class, 'index'])->name('equipment-models.index');
-    Route::post('/modelos-equipamentos', [EquipmentModelController::class, 'store'])->name('equipment-models.store');
-    Route::delete('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'destroy'])
-        ->whereNumber('model')
-        ->name('equipment-models.destroy');
+    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    // Operator+ — scan operations & read-only views
     Route::get('/producao', [ProductionController::class, 'index'])->name('production.index');
     Route::post('/producao/leitura', [ProductionController::class, 'store'])
         ->middleware('throttle:120,1')
@@ -48,13 +42,31 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/expedicao/leitura', [ExpeditionController::class, 'store'])
         ->middleware('throttle:120,1')
         ->name('expedition.store');
-    Route::get('/notas-fiscais', [InvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('/notas-fiscais/{invoice}', [InvoiceController::class, 'show'])
-        ->whereNumber('invoice')
-        ->name('invoices.show');
-    Route::get('/notas-fiscais/{invoice}/danfe', [InvoiceController::class, 'danfe'])
-        ->whereNumber('invoice')
-        ->name('invoices.danfe');
 
-    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    // Supervisor+ — full read access
+    Route::middleware('role:supervisor')->group(function (): void {
+        Route::get('/equipamentos', [EquipmentController::class, 'index'])->name('equipments.index');
+        Route::get('/equipamentos/{equipment}', [EquipmentController::class, 'show'])
+            ->whereNumber('equipment')
+            ->name('equipments.show');
+        Route::delete('/equipamentos/{equipment}', [EquipmentController::class, 'destroy'])
+            ->whereNumber('equipment')
+            ->name('equipments.destroy');
+        Route::get('/notas-fiscais', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/notas-fiscais/{invoice}', [InvoiceController::class, 'show'])
+            ->whereNumber('invoice')
+            ->name('invoices.show');
+        Route::get('/notas-fiscais/{invoice}/danfe', [InvoiceController::class, 'danfe'])
+            ->whereNumber('invoice')
+            ->name('invoices.danfe');
+    });
+
+    // Admin only — manage models
+    Route::middleware('role:admin')->group(function (): void {
+        Route::get('/modelos-equipamentos', [EquipmentModelController::class, 'index'])->name('equipment-models.index');
+        Route::post('/modelos-equipamentos', [EquipmentModelController::class, 'store'])->name('equipment-models.store');
+        Route::delete('/modelos-equipamentos/{model}', [EquipmentModelController::class, 'destroy'])
+            ->whereNumber('model')
+            ->name('equipment-models.destroy');
+    });
 });

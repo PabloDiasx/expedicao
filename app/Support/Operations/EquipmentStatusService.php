@@ -2,6 +2,8 @@
 
 namespace App\Support\Operations;
 
+use App\Enums\ReadResult;
+use App\Enums\TransitionResult;
 use App\Support\Concerns\NormalizesText;
 use Illuminate\Support\Facades\DB;
 
@@ -56,7 +58,7 @@ class EquipmentStatusService
 
             if (! $status) {
                 return [
-                    'result' => 'invalid_status',
+                    'result' => TransitionResult::InvalidStatus->value,
                     'equipment_id' => null,
                     'serial_number' => null,
                     'status_name' => '',
@@ -114,7 +116,7 @@ class EquipmentStatusService
                     'sector_id' => $sectorId,
                     'user_id' => $userId,
                     'device_identifier' => $cleanDeviceIdentifier,
-                    'read_result' => 'not_found',
+                    'read_result' => ReadResult::NotFound->value,
                     'payload' => $payload,
                     'read_at' => $now,
                     'created_at' => $now,
@@ -122,7 +124,7 @@ class EquipmentStatusService
                 ]);
 
                 return [
-                    'result' => 'not_found',
+                    'result' => TransitionResult::NotFound->value,
                     'equipment_id' => null,
                     'serial_number' => null,
                     'status_name' => (string) $status->name,
@@ -146,7 +148,7 @@ class EquipmentStatusService
                 'sector_id' => $sectorId,
                 'user_id' => $userId,
                 'device_identifier' => $cleanDeviceIdentifier,
-                'read_result' => $isSameTransition ? 'no_change' : 'matched',
+                'read_result' => $isSameTransition ? ReadResult::NoChange->value : ReadResult::Matched->value,
                 'payload' => $payload,
                 'read_at' => $now,
                 'created_at' => $now,
@@ -155,7 +157,7 @@ class EquipmentStatusService
 
             if ($isSameTransition) {
                 return [
-                    'result' => 'no_change',
+                    'result' => TransitionResult::NoChange->value,
                     'equipment_id' => (int) $equipment->id,
                     'serial_number' => (string) $equipment->serial_number,
                     'status_name' => (string) $status->name,
@@ -197,7 +199,7 @@ class EquipmentStatusService
             ]);
 
             return [
-                'result' => 'updated',
+                'result' => TransitionResult::Updated->value,
                 'equipment_id' => (int) $equipment->id,
                 'serial_number' => (string) $equipment->serial_number,
                 'status_name' => (string) $status->name,
@@ -250,6 +252,37 @@ class EquipmentStatusService
             ->first();
     }
 
+    /** Known model prefixes sorted longest-first for greedy match. */
+    private const KNOWN_MODELS = [
+        'V2CROSS', 'V5XT', 'V5PT',
+        'V8X', 'V5P', 'V5X', 'V4N', 'V2R', 'V12',
+        'V1', 'V2', 'V4', 'V5', 'V8',
+    ];
+
+    /**
+     * Extract model prefix from a barcode string.
+     * Tries known models first, then regex fallback.
+     */
+    private function extractModelFromBarcode(string $barcode): ?string
+    {
+        $upper = mb_strtoupper($barcode);
+        foreach (self::KNOWN_MODELS as $model) {
+            if (str_starts_with($upper, $model)) {
+                return $model;
+            }
+        }
+        // Fallback: V + digits + optional trailing letters (e.g. V8X, V4N)
+        if (preg_match('/^(V[0-9]{1,2}[A-Z]*)/', $upper, $m) === 1) {
+            return $m[1];
+        }
+        // Generic fallback
+        if (preg_match('/^([A-Z]+[0-9]+[A-Z]*)/', $upper, $m) === 1) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
     /**
      * @return array<int, string>
      */
@@ -261,44 +294,45 @@ class EquipmentStatusService
             return [];
         }
 
+        // Already in final format: MODEL.YY.SERIAL
         if (preg_match('/^[A-Z0-9]+\.[0-9]{2}\.[0-9]+$/', $scannerCode) === 1) {
             $candidates[$scannerCode] = true;
         }
 
-        if (preg_match('/^([A-Z]+[0-9]+).*-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $matches) === 1) {
-            $model = $matches[1];
-            $year = $matches[2];
-            $serial = ltrim($matches[3], '0');
-            $serial = $serial === '' ? '0' : $serial;
-
-            $candidates[$model.'.'.$year.'.'.$serial] = true;
-        }
-
-        if (preg_match('/^([A-Z]+[0-9]+)[A-Z]+([0-9]{2})([0-9]{2,8})$/', $scannerCode, $matches) === 1) {
-            $model = $matches[1];
-            $year = $matches[2];
-            $serial = ltrim($matches[3], '0');
-            $serial = $serial === '' ? '0' : $serial;
-
-            $candidates[$model.'.'.$year.'.'.$serial] = true;
-        }
-
+        // Dashed format: {MODEL}{STUFF}-{YY}.{SERIAL}
         if (preg_match('/-([0-9]{2})\.([0-9]{1,8})$/', $scannerCode, $tailMatches) === 1) {
             $year = $tailMatches[1];
             $serialRaw = $tailMatches[2];
             $serialTrimmed = ltrim($serialRaw, '0');
             $serialTrimmed = $serialTrimmed === '' ? '0' : $serialTrimmed;
 
-            foreach ($this->loadSerialPrefixesForTenant($tenantId) as $prefix) {
-                if (str_starts_with($scannerCode, $prefix)) {
-                    $candidates[$prefix.'.'.$year.'.'.$serialTrimmed] = true;
-                    $candidates[$prefix.'.'.$year.'.'.$serialRaw] = true;
+            $model = $this->extractModelFromBarcode($scannerCode);
+            if ($model !== null) {
+                $candidates[$model.'.'.$year.'.'.$serialTrimmed] = true;
+                if ($serialRaw !== $serialTrimmed) {
+                    $candidates[$model.'.'.$year.'.'.$serialRaw] = true;
                 }
             }
 
-            if (preg_match('/^(V[0-9]{1,2})/', $scannerCode, $modelMatches) === 1) {
-                $candidates[$modelMatches[1].'.'.$year.'.'.$serialTrimmed] = true;
-                $candidates[$modelMatches[1].'.'.$year.'.'.$serialRaw] = true;
+            // Also try prefixes from existing equipment
+            foreach ($this->loadSerialPrefixesForTenant($tenantId) as $prefix) {
+                if (str_starts_with($scannerCode, $prefix)) {
+                    $candidates[$prefix.'.'.$year.'.'.$serialTrimmed] = true;
+                }
+            }
+        }
+
+        // Compact format: {MODEL}{LETTERS}{YY}{SERIAL} (no dashes)
+        if ($candidates === []) {
+            $model = $this->extractModelFromBarcode($scannerCode);
+            if ($model !== null) {
+                $rest = substr($scannerCode, strlen($model));
+                if (preg_match('/[A-Z]+([0-9]{2})([0-9]{2,8})$/', $rest, $compactMatches) === 1) {
+                    $year = $compactMatches[1];
+                    $serial = ltrim($compactMatches[2], '0');
+                    $serial = $serial === '' ? '0' : $serial;
+                    $candidates[$model.'.'.$year.'.'.$serial] = true;
+                }
             }
         }
 

@@ -12,6 +12,15 @@ class StatusSeeder extends Seeder
      */
     public function run(): void
     {
+        try {
+            $this->seed();
+        } catch (\Throwable $e) {
+            $this->command?->error('StatusSeeder failed: '.$e->getMessage());
+        }
+    }
+
+    private function seed(): void
+    {
         $now = now();
 
         $canonicalStatuses = [

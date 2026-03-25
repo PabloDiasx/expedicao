@@ -210,15 +210,18 @@ class NomusInvoiceSyncService
         $timezone = config('app.timezone', 'America/Sao_Paulo');
 
         $formats = [
-            'd/m/Y H:i:s',
-            'd/m/Y H:i',
-            'Y-m-d H:i:s',
+            '!d/m/Y H:i:s',
+            '!d/m/Y H:i',
+            '!Y-m-d H:i:s',
             DATE_ATOM,
         ];
 
         foreach ($formats as $format) {
             try {
-                return CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                $parsed = CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                if ($parsed && $parsed->format(ltrim($format, '!')) === $raw) {
+                    return $parsed;
+                }
             } catch (Throwable) {
                 // continue
             }
@@ -241,14 +244,17 @@ class NomusInvoiceSyncService
         $timezone = config('app.timezone', 'America/Sao_Paulo');
 
         $formats = [
-            'd/m/Y',
-            'Y-m-d',
+            '!d/m/Y',
+            '!Y-m-d',
             DATE_ATOM,
         ];
 
         foreach ($formats as $format) {
             try {
-                return CarbonImmutable::createFromFormat($format, $raw, $timezone)->toDateString();
+                $parsed = CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                if ($parsed && $parsed->format(ltrim($format, '!')) === $raw) {
+                    return $parsed->toDateString();
+                }
             } catch (Throwable) {
                 // continue
             }

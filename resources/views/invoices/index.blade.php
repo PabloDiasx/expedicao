@@ -61,7 +61,7 @@
                                 role="link"
                                 aria-label="Abrir nota fiscal {{ $invoice->numero ?? '-' }}"
                             >
-                                <td>{{ $invoice->numero ?? '-' }}</td>
+                                <td><a href="{{ route('invoices.show', $invoice) }}" class="row-link-anchor">{{ $invoice->numero ?? '-' }}</a></td>
                                 <td>{{ $summary['destinatario_nome'] !== '' ? $summary['destinatario_nome'] : '-' }}</td>
                                 <td>{{ $summary['valor_total_formatado'] }}</td>
                                 <td>{{ $summary['data_emissao'] }}</td>
@@ -103,33 +103,6 @@
     </div>
 
     @push('scripts')
-        <script>
-            (function () {
-                const rows = document.querySelectorAll('.table-row-link[data-href]');
-
-                if (!rows.length) {
-                    return;
-                }
-
-                rows.forEach(function (row) {
-                    row.addEventListener('click', function (event) {
-                        if (event.target.closest('a, button, input, select, textarea, label')) {
-                            return;
-                        }
-
-                        window.location.href = row.dataset.href;
-                    });
-
-                    row.addEventListener('keydown', function (event) {
-                        if (event.key !== 'Enter' && event.key !== ' ') {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        window.location.href = row.dataset.href;
-                    });
-                });
-            })();
-        </script>
+        <script src="{{ asset('js/table-row-links.js') }}"></script>
     @endpush
 </x-layouts.app>

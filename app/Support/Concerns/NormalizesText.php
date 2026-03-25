@@ -11,13 +11,26 @@ trait NormalizesText
         }
 
         $normalized = trim($value);
+        if ($normalized === '') {
+            return null;
+        }
 
-        return $normalized === '' ? null : $normalized;
+        if (function_exists('normalizer_normalize')) {
+            $normalized = \Normalizer::normalize($normalized, \Normalizer::FORM_C) ?: $normalized;
+        }
+
+        return $normalized;
     }
 
     private function normalizeScannerCode(string $value): string
     {
-        $normalized = mb_strtoupper(trim($value));
+        $normalized = trim($value);
+
+        if (function_exists('normalizer_normalize')) {
+            $normalized = \Normalizer::normalize($normalized, \Normalizer::FORM_C) ?: $normalized;
+        }
+
+        $normalized = mb_strtoupper($normalized);
         $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
 
         return $normalized;

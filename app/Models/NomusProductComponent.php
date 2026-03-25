@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class NomusProductComponent extends Model
 {
+    use BelongsToTenant, SoftDeletes;
     protected $fillable = [
         'tenant_id',
         'external_id',
@@ -40,9 +42,5 @@ class NomusProductComponent extends Model
         ];
     }
 
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 }
 

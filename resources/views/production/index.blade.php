@@ -175,9 +175,8 @@
             </table>
         </div>
     </section>
-</x-layouts.app>
 
-@push('scripts')
+    @push('scripts')
     <script src="{{ asset('js/barcode-converter.js') }}?v={{ filemtime(public_path('js/barcode-converter.js')) }}"></script>
     <script>
         (function () {
@@ -210,4 +209,5 @@
             barcodeInput.addEventListener('change', ensureConversionBeforeSubmit);
         })();
     </script>
-@endpush
+    @endpush
+</x-layouts.app>

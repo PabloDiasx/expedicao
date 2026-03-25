@@ -7,6 +7,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{{ $title }} - Controle de Estoque</title>
     <link rel="stylesheet" href="{{ asset('css/app-ui.css') }}?v={{ filemtime(public_path('css/app-ui.css')) }}">
 </head>
@@ -41,6 +44,9 @@
                     $etapaAtual = (string) request('etapa', '');
                     $isProducao = request()->routeIs('production.*');
                     $isExpedicao = request()->routeIs('expedition.*');
+                    $userRole = \App\Enums\UserRole::tryFrom(auth()->user()->role ?? 'operator') ?? \App\Enums\UserRole::Operator;
+                    $isSupervisor = $userRole->atLeast(\App\Enums\UserRole::Supervisor);
+                    $isAdmin = $userRole->atLeast(\App\Enums\UserRole::Admin);
                 @endphp
 
                 <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}">
@@ -61,6 +67,7 @@
                     <span>Montagem</span>
                 </a>
 
+                @if ($isSupervisor)
                 <a href="{{ route('equipments.index') }}" class="nav-item {{ request()->routeIs('equipments.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M4 8H20V20H4V8Z" stroke="currentColor" stroke-width="2"></path>
@@ -69,6 +76,7 @@
                     </svg>
                     <span>Equipamentos</span>
                 </a>
+                @endif
 
                 <a href="{{ route('expedition.index') }}" class="nav-item {{ $isExpedicao && $etapaAtual !== 'carregamento' ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
@@ -89,6 +97,7 @@
                     <span>Carregamento</span>
                 </a>
 
+                @if ($isSupervisor)
                 <a href="{{ route('invoices.index') }}" class="nav-item {{ request()->routeIs('invoices.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M6 3H14L18 7V21H6V3Z" stroke="currentColor" stroke-width="2"></path>
@@ -97,7 +106,9 @@
                     </svg>
                     <span>Notas Fiscais</span>
                 </a>
+                @endif
 
+                @if ($isAdmin)
                 <a href="{{ route('equipment-models.index') }}" class="nav-item {{ request()->routeIs('equipment-models.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"></rect>
@@ -105,6 +116,7 @@
                     </svg>
                     <span>Modelos</span>
                 </a>
+                @endif
             </nav>
 
             <div class="sidebar-footer">

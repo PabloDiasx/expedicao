@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NomusSalesSyncState extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'tenant_id',
         'sync_key',
@@ -34,9 +35,5 @@ class NomusSalesSyncState extends Model
         ];
     }
 
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 }
 

@@ -75,6 +75,7 @@
                         <th>Status</th>
                         <th>Setor</th>
                         <th>Atualizado em</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,7 +87,7 @@
                             role="link"
                             aria-label="Abrir detalhes do equipamento {{ $equipment->serial_number }}"
                         >
-                            <td>{{ $equipment->serial_number }}</td>
+                            <td><a href="{{ route('equipments.show', ['equipment' => $equipment->id]) }}" class="row-link-anchor">{{ $equipment->serial_number }}</a></td>
                             <td>{{ $equipment->model_name }}</td>
                             <td>{{ $equipment->entry_customer_name ?? '-' }}</td>
                             <td>{{ $equipment->barcode }}</td>
@@ -97,39 +98,61 @@
                             </td>
                             <td>{{ $equipment->sector_name ?? '-' }}</td>
                             <td>{{ \Illuminate\Support\Carbon::parse($equipment->updated_at)->format('d/m/Y H:i') }}</td>
+                            <td>
+                                <form method="POST" action="{{ route('equipments.destroy', ['equipment' => $equipment->id]) }}" class="inline-delete-form js-equipment-delete" data-serial="{{ $equipment->serial_number }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-delete-icon" title="Remover equipamento">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="empty-cell">Nenhum equipamento localizado.</td>
+                            <td colspan="8" class="empty-cell">Nenhum equipamento localizado.</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </section>
-</x-layouts.app>
 
-@push('scripts')
+    @push('scripts')
+    <script src="{{ asset('js/table-row-links.js') }}?v={{ filemtime(public_path('js/table-row-links.js')) }}"></script>
     <script>
         (function () {
-            const rows = document.querySelectorAll('.table-row-link[data-href]');
-            rows.forEach(function (row) {
-                const href = row.getAttribute('data-href');
-                if (!href) {
-                    return;
-                }
+            document.addEventListener('submit', function (e) {
+                var form = e.target.closest('.js-equipment-delete');
+                if (!form) return;
 
-                row.addEventListener('click', function () {
-                    window.location.href = href;
-                });
+                e.preventDefault();
+                var serial = form.dataset.serial || 'este equipamento';
 
-                row.addEventListener('keydown', function (event) {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        window.location.href = href;
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Remover equipamento?',
+                        html: 'Tem certeza que deseja remover <strong>' + serial + '</strong>? Esta acao nao pode ser desfeita.',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ef4444',
+                        confirmButtonText: 'Sim, remover',
+                        cancelButtonText: 'Cancelar',
+                        reverseButtons: true,
+                        focusCancel: true,
+                    }).then(function (result) {
+                        if (result.isConfirmed) {
+                            form.dataset.confirmed = '1';
+                            HTMLFormElement.prototype.submit.call(form);
+                        }
+                    });
+                } else {
+                    if (confirm('Tem certeza que deseja remover o equipamento ' + serial + '?')) {
+                        HTMLFormElement.prototype.submit.call(form);
                     }
-                });
+                }
             });
         })();
     </script>
-@endpush
+    @endpush
+</x-layouts.app>

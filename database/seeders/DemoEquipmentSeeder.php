@@ -13,6 +13,15 @@ class DemoEquipmentSeeder extends Seeder
      */
     public function run(): void
     {
+        try {
+            $this->seed();
+        } catch (\Throwable $e) {
+            $this->command?->error('DemoEquipmentSeeder failed: '.$e->getMessage());
+        }
+    }
+
+    private function seed(): void
+    {
         $now = now();
 
         $tenantId = Tenant::query()
@@ -20,6 +29,7 @@ class DemoEquipmentSeeder extends Seeder
             ->value('id');
 
         if (! $tenantId) {
+            $this->command?->warn('Default tenant not found, skipping DemoEquipmentSeeder.');
             return;
         }
 

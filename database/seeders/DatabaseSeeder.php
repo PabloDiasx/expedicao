@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@livepilates.local'],
             [
                 'tenant_id' => $defaultTenantId,
+                'role' => 'admin',
                 'name' => 'Administrador Live Pilates',
                 'username' => 'admin',
                 'password' => 'admin123',

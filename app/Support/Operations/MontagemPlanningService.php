@@ -2,6 +2,7 @@
 
 namespace App\Support\Operations;
 
+use App\Enums\TransitionResult;
 use App\Support\Concerns\NormalizesText;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -286,9 +287,9 @@ class MontagemPlanningService
             eventSource: 'scanner_montagem'
         );
 
-        if (($transition['result'] ?? null) === 'not_found') {
+        if (($transition['result'] ?? null) === TransitionResult::NotFound->value) {
             return [
-                'result' => 'not_found',
+                'result' => TransitionResult::NotFound->value,
                 'serial_number' => null,
                 'message' => 'Nenhum equipamento foi encontrado para o codigo informado.',
                 'order_code' => null,

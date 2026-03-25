@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class NomusSalesOrderItem extends Model
 {
+    use BelongsToTenant, SoftDeletes;
     protected $fillable = [
         'tenant_id',
         'sales_order_id',
@@ -35,11 +38,6 @@ class NomusSalesOrderItem extends Model
             'payload' => 'array',
             'last_synced_at' => 'datetime',
         ];
-    }
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
     }
 
     public function order(): BelongsTo

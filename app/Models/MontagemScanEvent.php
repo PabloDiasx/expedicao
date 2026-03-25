@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MontagemScanEvent extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'tenant_id',
         'equipment_id',
@@ -34,9 +35,5 @@ class MontagemScanEvent extends Model
         ];
     }
 
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 }
 

@@ -243,10 +243,14 @@ class NomusSalesSyncService
                 DB::table('nomus_product_components')
                     ->where('tenant_id', $tenant->id)
                     ->where('parent_product_external_id', $parentProductId)
+                    ->whereNull('deleted_at')
                     ->when($seenExternalIds !== [], function ($query) use ($seenExternalIds): void {
                         $query->whereNotIn('external_id', $seenExternalIds);
                     })
-                    ->delete();
+                    ->update([
+                        'deleted_at' => now(),
+                        'deleted_reason' => 'removed_from_source',
+                    ]);
             }
         } catch (Throwable $exception) {
             $this->finishSyncStateWithError($state, $exception, $processed, $created, $updated, $pageCount);
@@ -456,7 +460,7 @@ class NomusSalesSyncService
                     'last_synced_at' => $syncedAt->toDateTimeString(),
                 ];
 
-                $item = NomusSalesOrderItem::query()
+                $item = NomusSalesOrderItem::withTrashed()
                     ->where('sales_order_id', (int) $order->id)
                     ->where('item_code', $itemCode)
                     ->lockForUpdate()
@@ -466,6 +470,10 @@ class NomusSalesSyncService
                     NomusSalesOrderItem::query()->create($itemAttributes);
                     $created++;
                 } else {
+                    if ($item->trashed()) {
+                        $item->restore();
+                        $item->deleted_reason = null;
+                    }
                     $item->fill($itemAttributes);
                     if ($item->isDirty()) {
                         $item->save();
@@ -474,16 +482,18 @@ class NomusSalesSyncService
                 }
             }
 
+            $orphanQuery = DB::table('nomus_sales_order_items')
+                ->where('sales_order_id', (int) $order->id)
+                ->whereNull('deleted_at');
+
             if ($seenItemCodes !== []) {
-                DB::table('nomus_sales_order_items')
-                    ->where('sales_order_id', (int) $order->id)
-                    ->whereNotIn('item_code', $seenItemCodes)
-                    ->delete();
-            } else {
-                DB::table('nomus_sales_order_items')
-                    ->where('sales_order_id', (int) $order->id)
-                    ->delete();
+                $orphanQuery->whereNotIn('item_code', $seenItemCodes);
             }
+
+            $orphanQuery->update([
+                'deleted_at' => now(),
+                'deleted_reason' => 'removed_from_source',
+            ]);
 
             return [
                 'skipped' => false,
@@ -659,7 +669,7 @@ class NomusSalesSyncService
             $componentProductId,
             $nomusUpdatedAt
         ): array {
-            $component = NomusProductComponent::query()
+            $component = NomusProductComponent::withTrashed()
                 ->where('tenant_id', $tenantId)
                 ->where('external_id', $externalId)
                 ->lockForUpdate()
@@ -681,6 +691,10 @@ class NomusSalesSyncService
                 ];
             }
 
+            if ($component->trashed()) {
+                $component->restore();
+                $component->deleted_reason = null;
+            }
             $component->fill($attributes);
             if ($component->isDirty()) {
                 $component->save();
@@ -739,15 +753,18 @@ class NomusSalesSyncService
         $timezone = config('app.timezone', 'America/Sao_Paulo');
 
         $formats = [
-            'd/m/Y H:i:s',
-            'd/m/Y H:i',
-            'Y-m-d H:i:s',
+            '!d/m/Y H:i:s',
+            '!d/m/Y H:i',
+            '!Y-m-d H:i:s',
             DATE_ATOM,
         ];
 
         foreach ($formats as $format) {
             try {
-                return CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                $parsed = CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                if ($parsed && $parsed->format(ltrim($format, '!')) === $raw) {
+                    return $parsed;
+                }
             } catch (Throwable) {
                 // continue
             }
@@ -770,15 +787,18 @@ class NomusSalesSyncService
         $timezone = config('app.timezone', 'America/Sao_Paulo');
 
         $formats = [
-            'd/m/Y',
-            'd/m/Y H:i:s',
-            'Y-m-d',
+            '!d/m/Y',
+            '!d/m/Y H:i:s',
+            '!Y-m-d',
             DATE_ATOM,
         ];
 
         foreach ($formats as $format) {
             try {
-                return CarbonImmutable::createFromFormat($format, $raw, $timezone)->toDateString();
+                $parsed = CarbonImmutable::createFromFormat($format, $raw, $timezone);
+                if ($parsed && $parsed->format(ltrim($format, '!')) === $raw) {
+                    return $parsed->toDateString();
+                }
             } catch (Throwable) {
                 // continue
             }
@@ -815,15 +835,15 @@ class NomusSalesSyncService
         return (int) $value;
     }
 
-    private function asDecimal(mixed $value): float
+    private function asDecimal(mixed $value): string
     {
         if ($value === null || $value === '') {
-            return 0.0;
+            return '0.0000';
         }
 
         $string = preg_replace('/\s+/', '', trim((string) $value)) ?? '';
         if ($string === '') {
-            return 0.0;
+            return '0.0000';
         }
 
         if (str_contains($string, ',') && str_contains($string, '.')) {
@@ -841,9 +861,9 @@ class NomusSalesSyncService
         }
 
         if (! is_numeric($string)) {
-            return 0.0;
+            return '0.0000';
         }
 
-        return round((float) $string, 4);
+        return number_format((float) $string, 4, '.', '');
     }
 }

@@ -12,6 +12,15 @@ class SectorSeeder extends Seeder
      */
     public function run(): void
     {
+        try {
+            $this->seed();
+        } catch (\Throwable $e) {
+            $this->command?->error('SectorSeeder failed: '.$e->getMessage());
+        }
+    }
+
+    private function seed(): void
+    {
         $now = now();
 
         DB::table('sectors')->upsert([

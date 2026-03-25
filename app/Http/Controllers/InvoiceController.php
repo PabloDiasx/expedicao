@@ -16,6 +16,7 @@ use Throwable;
 
 class InvoiceController extends Controller
 {
+    private const LIST_SUMMARY_TTL_MINUTES = 360;
     public function index(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
@@ -74,7 +75,7 @@ class InvoiceController extends Controller
 
             $invoiceSummaries[$invoice->id] = Cache::remember(
                 $cacheKey,
-                now()->addHours(6),
+                now()->addMinutes(self::LIST_SUMMARY_TTL_MINUTES),
                 function () use ($invoice): array {
                     $fullInvoice = FiscalInvoice::query()
                         ->where('tenant_id', $invoice->tenant_id)
@@ -412,14 +413,13 @@ class InvoiceController extends Controller
         return $fallbackStatus;
     }
 
-    private function parseAmount(string $raw): ?float
+    private function parseAmount(string $raw): ?string
     {
         $normalized = trim($raw);
         if ($normalized === '') {
             return null;
         }
 
-        // Accept both "1047.40" and "1.047,40".
         if (str_contains($normalized, ',') && str_contains($normalized, '.')) {
             $normalized = str_replace('.', '', $normalized);
             $normalized = str_replace(',', '.', $normalized);
@@ -431,12 +431,12 @@ class InvoiceController extends Controller
             return null;
         }
 
-        return (float) $normalized;
+        return number_format((float) $normalized, 2, '.', '');
     }
 
-    private function formatCurrency(float $amount): string
+    private function formatCurrency(string $amount): string
     {
-        return 'R$ '.number_format($amount, 2, ',', '.');
+        return 'R$ '.number_format((float) $amount, 2, ',', '.');
     }
 
     private function formatEmissionDate(string $raw): ?string

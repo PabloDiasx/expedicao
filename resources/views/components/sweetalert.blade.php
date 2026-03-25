@@ -1,4 +1,5 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>window.Swal || document.write('<script src="{{ asset('vendor/sweetalert2/sweetalert2.all.min.js') }}"><\/script>');</script>
 <script>
     window.appAlert = function (options) {
         return Swal.fire(Object.assign({
@@ -60,7 +61,7 @@
             window.appAlert({
                 icon: 'error',
                 title: 'Atenção',
-                text: errors.join('\n'),
+                html: errors.map(function (e) { return '<p style="margin:0.25em 0">' + e.replace(/[<>&"]/g, function (c) { return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }) + '</p>'; }).join(''),
             });
             return;
         }
