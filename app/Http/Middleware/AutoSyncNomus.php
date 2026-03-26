@@ -95,6 +95,14 @@ class AutoSyncNomus
                         'entry_invoice_linked_at' => $now,
                         'updated_at' => $now,
                     ]);
+
+                \App\Support\Webhooks\WebhookDispatcher::dispatch($tenantId, 'nf_vinculada', [
+                    'serial_number' => $eq->serial_number,
+                    'invoice_number' => $result['invoice_number'],
+                    'customer_name' => $result['customer_name'],
+                    'destination' => $result['destination'],
+                    'timestamp' => $now->toIso8601String(),
+                ]);
             } catch (Throwable $e) {
                 Log::warning('[AutoSyncNomus] Erro ao vincular NF ao equipamento ' . $eq->serial_number . ': ' . $e->getMessage());
             }

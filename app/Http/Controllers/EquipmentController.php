@@ -259,6 +259,18 @@ class EquipmentController extends Controller
             'created_at' => $now,
         ]);
 
+        $fromStatusName = DB::table('statuses')->where('id', $row->current_status_id)->value('name');
+        \App\Support\Webhooks\WebhookDispatcher::dispatch((int) $tenant->id, 'status_alterado', [
+            'serial_number' => $row->serial_number,
+            'model_name' => '',
+            'from_status' => $fromStatusName ?? '',
+            'to_status' => $status->name,
+            'event_source' => 'manual',
+            'user_name' => auth()->user()->name ?? null,
+            'notes' => 'Status alterado manualmente',
+            'timestamp' => $now->toIso8601String(),
+        ]);
+
         return back();
     }
 

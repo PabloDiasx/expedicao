@@ -5,19 +5,17 @@
         <a href="{{ route('configuracoes.index', ['tab' => 'empresa']) }}" class="config-tab {{ $tab === 'empresa' ? 'config-tab--active' : '' }}">Empresa</a>
         @if ($currentRole->atLeast(\App\Enums\UserRole::Admin))
             <a href="{{ route('configuracoes.index', ['tab' => 'assinatura']) }}" class="config-tab {{ $tab === 'assinatura' ? 'config-tab--active' : '' }}">Assinatura</a>
+            <a href="{{ route('configuracoes.index', ['tab' => 'integracoes']) }}" class="config-tab {{ $tab === 'integracoes' ? 'config-tab--active' : '' }}">Integrações</a>
         @endif
     </div>
 
     {{-- ═══════════════ ABA USUARIOS ═══════════════ --}}
     @if ($tab === 'usuarios')
     <section class="panel-card">
-        <div class="invoice-detail-top">
-            <h2 class="section-title" style="margin:0;">Usuarios</h2>
-            <button type="button" id="btn-novo-usuario" class="page-btn">Novo usuario</button>
+        <div class="invoice-detail-top" style="margin-bottom:var(--space-3);">
+            <h2 class="section-title" style="margin:0;">Usuários</h2>
+            <button type="button" id="btn-novo-usuario" class="page-btn">Novo usuário</button>
         </div>
-    </section>
-
-    <section class="panel-card">
         <div class="table-wrap">
             <table class="data-table">
                 <thead>
@@ -272,6 +270,136 @@
     </section>
     @endif
 
+    {{-- ═══════════════ ABA INTEGRAÇÕES ═══════════════ --}}
+    @if ($tab === 'integracoes')
+    <section class="panel-card">
+        <div class="invoice-detail-top" style="margin-bottom:var(--space-3);">
+            <h2 class="section-title" style="margin:0;">Integrações conectadas</h2>
+            <button type="button" id="btn-nova-integracao" class="page-btn">Nova integração</button>
+        </div>
+
+        <div class="config-integrations-grid">
+            @forelse ($integrations as $integ)
+                @php
+                    $statusColors = ['connected' => '#22c55e', 'disconnected' => '#64748b', 'error' => '#ef4444'];
+                    $typeLabels = ['erp' => 'ERP', 'api' => 'API', 'webhook' => 'Webhook'];
+                @endphp
+                <div class="config-integ-card">
+                    <div class="config-integ-header">
+                        <div>
+                            <h3 class="config-integ-name">{{ $integ->name }}</h3>
+                            <span class="status-badge" style="--status-color: {{ $statusColors[$integ->status] ?? '#64748b' }}">
+                                {{ $integ->status === 'connected' ? 'Conectado' : ($integ->status === 'error' ? 'Erro' : 'Desconectado') }}
+                            </span>
+                        </div>
+                        <div class="filters-actions" style="gap:var(--space-1);">
+                            <button type="button" class="page-btn page-btn-light js-test-integ" data-id="{{ $integ->id }}" style="padding:6px 12px;font-size:var(--text-xs);">Testar</button>
+                            <button type="button" class="btn-delete-icon js-edit-integ"
+                                data-id="{{ $integ->id }}"
+                                data-name="{{ $integ->name }}"
+                                data-description="{{ $integ->description }}"
+                                data-type="{{ $integ->type }}"
+                                data-base-url="{{ $integ->base_url }}"
+                                data-auth-type="{{ $integ->auth_type }}"
+                                data-auth-value="{{ $integ->auth_value }}"
+                                data-verify-ssl="{{ $integ->verify_ssl ? '1' : '0' }}"
+                                data-timeout="{{ $integ->timeout_seconds }}"
+                                data-config='@json(is_string($integ->webhook_config) ? json_decode($integ->webhook_config, true) : $integ->webhook_config)'
+                                title="Editar" style="color:var(--page-btn);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            @if (! $integ->is_native)
+                            <form method="POST" action="{{ route('configuracoes.integrations.destroy', ['integration' => $integ->id]) }}" class="inline-delete-form js-integ-delete" data-serial="{{ $integ->name }}">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="btn-delete-icon" title="Remover">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </div>
+                    @if ($integ->description)
+                        <p class="config-integ-desc">{{ $integ->description }}</p>
+                    @endif
+                    <div class="config-integ-details">
+                        <span>URL: {{ $integ->base_url ?? '-' }}</span>
+                        <span>Auth: {{ ucfirst($integ->auth_type ?? 'none') }}</span>
+                        @if ($integ->last_tested_at)
+                            <span>Último teste: {{ \Illuminate\Support\Carbon::parse($integ->last_tested_at)->format('d/m/Y H:i') }}</span>
+                        @endif
+                    </div>
+                    <div id="test-result-{{ $integ->id }}" style="display:none;margin-top:var(--space-2);"></div>
+                </div>
+            @empty
+                <p style="color:var(--muted);">Nenhuma integração configurada.</p>
+            @endforelse
+        </div>
+    </section>
+
+    {{-- Modal unificado de integração --}}
+    @php $webhookEvents = \App\Support\Webhooks\WebhookDispatcher::EVENTS; @endphp
+    <div id="integ-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card" style="max-width:700px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="integ-modal-title">Nova integração</h3>
+                <button type="button" class="modal-close" id="integ-modal-close">&times;</button>
+            </div>
+
+            {{-- Seletor de tipo --}}
+            <div class="config-tabs" style="margin-top:var(--space-3);">
+                <a href="#" class="config-tab config-tab--active js-type-tab" data-type="api">API</a>
+                <a href="#" class="config-tab js-type-tab" data-type="webhook">Webhook</a>
+                <a href="#" class="config-tab js-type-tab" data-type="erp">ERP</a>
+            </div>
+
+            <form id="integ-form" method="POST" class="stack-16" style="margin-top:var(--space-4);">
+                @csrf
+                <input type="hidden" id="integ-method" name="_method" value="POST">
+                <input type="hidden" id="integ-type" name="type" value="api">
+
+                {{-- Campos comuns --}}
+                <div><label class="panel-label">Nome</label><input id="if-name" name="name" type="text" class="input" required maxlength="150" placeholder="Ex: Meu Sistema"></div>
+                <div><label class="panel-label">Descrição</label><input id="if-description" name="description" type="text" class="input" maxlength="500" placeholder="Opcional"></div>
+                <div><label class="panel-label">URL Base</label><input id="if-base-url" name="base_url" type="url" class="input" required placeholder="https://url.exemplo.com"></div>
+                <div class="form-grid-2">
+                    <div><label class="panel-label">Autenticação</label><select id="if-auth-type" name="auth_type" class="chart-select" required><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="api_key">API Key</option><option value="none">Nenhuma</option></select></div>
+                    <div><label class="panel-label">Token / Chave</label><input id="if-auth-value" name="auth_value" type="text" class="input" placeholder="Cole aqui"></div>
+                </div>
+                <div class="form-grid-2">
+                    <div><label class="panel-label">Timeout (segundos)</label><input id="if-timeout" name="timeout_seconds" type="number" class="input" value="30" min="5" max="120"></div>
+                    <div><label class="panel-label">Verificar SSL</label><select id="if-verify-ssl" name="verify_ssl" class="chart-select"><option value="1">Sim</option><option value="0">Não</option></select></div>
+                </div>
+
+                {{-- Seção Eventos (só aparece para Webhook) --}}
+                <div id="integ-events-section" style="display:none;">
+                    <h3 style="margin:var(--space-3) 0 var(--space-2);font-size:var(--text-md);font-weight:var(--fw-semibold);">Eventos do webhook</h3>
+                    <p style="color:var(--muted);font-size:var(--text-sm);margin:0 0 var(--space-3);">Selecione quais eventos disparam o webhook e quais informações enviar.</p>
+                    @foreach ($webhookEvents as $eventKey => $eventDef)
+                        <div class="wc-event-block">
+                            <label class="wc-event-toggle">
+                                <input type="checkbox" name="events[{{ $eventKey }}][enabled]" value="1" class="wc-event-cb" data-event="{{ $eventKey }}">
+                                <strong>{{ $eventDef['label'] }}</strong>
+                                <span style="color:var(--muted);font-size:var(--text-xs);margin-left:var(--space-2);">{{ $eventDef['description'] }}</span>
+                            </label>
+                            <div class="wc-fields-grid" id="wc-fields-{{ $eventKey }}" style="display:none;">
+                                @foreach ($eventDef['fields'] as $fieldKey => $fieldLabel)
+                                    <label class="wc-field-item">
+                                        <input type="checkbox" name="events[{{ $eventKey }}][fields][]" value="{{ $fieldKey }}">
+                                        {{ $fieldLabel }}
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="filters-actions"><button type="submit" class="page-btn" id="integ-submit-btn">Criar integração</button></div>
+            </form>
+        </div>
+    </div>
+
+    @endif
+
     @push('scripts')
     <script>
         (function () {
@@ -373,6 +501,164 @@
                     this.value = v;
                 });
             }
+            // ── Integrações — Modal unificado ──
+            var integModal = document.getElementById('integ-modal');
+            var integForm = document.getElementById('integ-form');
+            var integClose = document.getElementById('integ-modal-close');
+            var integTitle = document.getElementById('integ-modal-title');
+            var integSubmitBtn = document.getElementById('integ-submit-btn');
+            var integMethodInput = document.getElementById('integ-method');
+            var integTypeInput = document.getElementById('integ-type');
+            var eventsSection = document.getElementById('integ-events-section');
+            var storeUrl = @json(route('configuracoes.integrations.store'));
+            var updateUrlBase = @json(route('configuracoes.integrations.update', ['integration' => '___IID___']));
+            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || @json(csrf_token());
+
+            if (integClose) integClose.addEventListener('click', function () { integModal.style.display = 'none'; });
+            if (integModal) integModal.addEventListener('click', function (e) { if (e.target === integModal) integModal.style.display = 'none'; });
+
+            // Type tabs inside modal
+            function setActiveType(type) {
+                integTypeInput.value = type;
+                document.querySelectorAll('.js-type-tab').forEach(function (t) {
+                    t.classList.toggle('config-tab--active', t.dataset.type === type);
+                });
+                eventsSection.style.display = type === 'webhook' ? '' : 'none';
+            }
+
+            document.addEventListener('click', function (e) {
+                var tab = e.target.closest('.js-type-tab');
+                if (tab) { e.preventDefault(); setActiveType(tab.dataset.type); }
+            });
+
+            // Toggle event fields — click on card toggles open/close
+            document.querySelectorAll('.wc-event-block').forEach(function (block) {
+                var toggle = block.querySelector('.wc-event-toggle');
+                var cb = block.querySelector('.wc-event-cb');
+                if (!toggle || !cb) return;
+
+                toggle.addEventListener('click', function (e) {
+                    // If clicking directly on the checkbox, let it handle itself
+                    if (e.target === cb) return;
+                    e.preventDefault();
+
+                    var eventKey = cb.dataset.event;
+                    var fieldsDiv = document.getElementById('wc-fields-' + eventKey);
+                    if (!fieldsDiv) return;
+
+                    // Toggle visibility without changing checkbox
+                    var isOpen = fieldsDiv.style.display !== 'none';
+                    fieldsDiv.style.display = isOpen ? 'none' : '';
+                });
+
+                // Checkbox change still controls enable/disable
+                cb.addEventListener('change', function () {
+                    var fieldsDiv = document.getElementById('wc-fields-' + this.dataset.event);
+                    if (fieldsDiv && this.checked) fieldsDiv.style.display = '';
+                });
+            });
+
+            function resetIntegForm() {
+                integForm.reset();
+                integForm.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+                integForm.querySelectorAll('.wc-fields-grid').forEach(function (div) { div.style.display = 'none'; });
+                document.getElementById('if-timeout').value = '30';
+                document.getElementById('if-verify-ssl').value = '1';
+            }
+
+            function fillEventsFromConfig(config) {
+                if (!config) return;
+                Object.keys(config).forEach(function (eventKey) {
+                    var ec = config[eventKey];
+                    if (!ec) return;
+                    var cb = integForm.querySelector('.wc-event-cb[data-event="' + eventKey + '"]');
+                    if (cb && ec.enabled) {
+                        cb.checked = true;
+                        var fd = document.getElementById('wc-fields-' + eventKey);
+                        if (fd) fd.style.display = '';
+                    }
+                    (ec.fields || []).forEach(function (f) {
+                        var fcb = integForm.querySelector('input[name="events[' + eventKey + '][fields][]"][value="' + f + '"]');
+                        if (fcb) fcb.checked = true;
+                    });
+                });
+            }
+
+            // "Nova integração" button
+            var btnNova = document.getElementById('btn-nova-integracao');
+            if (btnNova) {
+                btnNova.addEventListener('click', function () {
+                    resetIntegForm();
+                    integForm.action = storeUrl;
+                    integMethodInput.value = 'POST';
+                    integTitle.textContent = 'Nova integração';
+                    integSubmitBtn.textContent = 'Criar integração';
+                    setActiveType('api');
+                    integModal.style.display = '';
+                });
+            }
+
+            // "Editar" button
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.js-edit-integ');
+                if (!btn) return;
+                resetIntegForm();
+                integForm.action = updateUrlBase.replace('___IID___', btn.dataset.id);
+                integMethodInput.value = 'PUT';
+                integTitle.textContent = 'Editar integração';
+                integSubmitBtn.textContent = 'Salvar';
+                document.getElementById('if-name').value = btn.dataset.name || '';
+                document.getElementById('if-description').value = btn.dataset.description || '';
+                document.getElementById('if-base-url').value = btn.dataset.baseUrl || '';
+                document.getElementById('if-auth-type').value = btn.dataset.authType || 'none';
+                document.getElementById('if-auth-value').value = btn.dataset.authValue || '';
+                document.getElementById('if-verify-ssl').value = btn.dataset.verifySsl || '1';
+                document.getElementById('if-timeout').value = btn.dataset.timeout || '30';
+                setActiveType(btn.dataset.type || 'api');
+                var config = {};
+                try { config = JSON.parse(btn.dataset.config) || {}; } catch (err) {}
+                fillEventsFromConfig(config);
+                integModal.style.display = '';
+            });
+
+            // Test connection
+            var testRouteBase = @json(route('configuracoes.integrations.test', ['integration' => '___IID___']));
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.js-test-integ');
+                if (!btn) return;
+                var id = btn.dataset.id;
+                var resultDiv = document.getElementById('test-result-' + id);
+                btn.textContent = 'Testando...';
+                btn.disabled = true;
+                fetch(testRouteBase.replace('___IID___', id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                    credentials: 'same-origin',
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    btn.textContent = 'Testar'; btn.disabled = false;
+                    if (resultDiv) {
+                        resultDiv.style.display = ''; resultDiv.style.padding = '8px 12px'; resultDiv.style.borderRadius = '6px'; resultDiv.style.fontSize = 'var(--text-sm)'; resultDiv.style.fontWeight = '600';
+                        resultDiv.style.background = data.ok ? '#dcfce7' : '#fef2f2'; resultDiv.style.color = data.ok ? '#166534' : '#991b1b';
+                        resultDiv.textContent = data.message;
+                        setTimeout(function () { resultDiv.style.display = 'none'; }, 5000);
+                    }
+                    if (data.ok) setTimeout(function () { location.reload(); }, 2000);
+                })
+                .catch(function () { btn.textContent = 'Testar'; btn.disabled = false; });
+            });
+
+            // Delete integration
+            document.addEventListener('submit', function (e) {
+                var form = e.target.closest('.js-integ-delete');
+                if (!form) return;
+                e.preventDefault();
+                var name = form.dataset.serial || 'esta integração';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'warning', title: 'Remover integração?', html: 'Tem certeza que deseja remover <strong>' + name + '</strong>?', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Sim, remover', cancelButtonText: 'Cancelar', reverseButtons: true, focusCancel: true }).then(function (result) { if (result.isConfirmed) HTMLFormElement.prototype.submit.call(form); });
+                } else { if (confirm('Remover ' + name + '?')) HTMLFormElement.prototype.submit.call(form); }
+            });
         })();
     </script>
     @endpush

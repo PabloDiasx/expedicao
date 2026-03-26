@@ -109,13 +109,8 @@
 
             // ── UI State ──
             function showConversionFeedback(raw, converted) {
-                if (conversionFeedback && raw !== converted) {
-                    conversionOriginal.textContent = raw;
-                    conversionResult.textContent = converted;
-                    conversionFeedback.style.display = '';
-                } else if (conversionFeedback) {
-                    conversionFeedback.style.display = 'none';
-                }
+                // Não exibe o feedback visual de conversão
+                if (conversionFeedback) conversionFeedback.style.display = 'none';
             }
 
             function setPreviewLoading(loading) {

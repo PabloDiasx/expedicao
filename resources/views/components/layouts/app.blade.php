@@ -50,6 +50,8 @@
                     $userRole = \App\Enums\UserRole::tryFrom(auth()->user()->role ?? 'operator') ?? \App\Enums\UserRole::Operator;
                     $isSupervisor = $userRole->atLeast(\App\Enums\UserRole::Supervisor);
                     $isAdmin = $userRole->atLeast(\App\Enums\UserRole::Admin);
+                    $uid = (int) auth()->id();
+                    $perm = fn(string $mod) => \App\Support\Auth\PermissionChecker::canView($uid, $mod);
                 @endphp
 
                 <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}">
@@ -62,6 +64,7 @@
                     <span>Dashboard</span>
                 </a>
 
+                @if ($perm('montagem'))
                 <a href="{{ route('production.index', ['etapa' => 'montagem']) }}" class="nav-item {{ $isProducao && ($etapaAtual === '' || $etapaAtual === 'montagem') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"></rect>
@@ -69,8 +72,9 @@
                     </svg>
                     <span>Montagem</span>
                 </a>
+                @endif
 
-                @if ($isSupervisor)
+                @if ($perm('equipamentos'))
                 <a href="{{ route('equipments.index') }}" class="nav-item {{ request()->routeIs('equipments.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M4 8H20V20H4V8Z" stroke="currentColor" stroke-width="2"></path>
@@ -81,6 +85,7 @@
                 </a>
                 @endif
 
+                @if ($perm('entrada'))
                 <a href="{{ route('expedition.index') }}" class="nav-item {{ $isExpedicao && $etapaAtual !== 'carregamento' ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M3 7H15V17H3V7Z" stroke="currentColor" stroke-width="2"></path>
@@ -90,7 +95,9 @@
                     </svg>
                     <span>Entrada</span>
                 </a>
+                @endif
 
+                @if ($perm('carregamentos'))
                 <a href="{{ route('expedition.index', ['etapa' => 'carregamento']) }}" class="nav-item {{ $isExpedicao && $etapaAtual === 'carregamento' ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M3 7H15V17H3V7Z" stroke="currentColor" stroke-width="2"></path>
@@ -99,8 +106,9 @@
                     </svg>
                     <span>Carregamento</span>
                 </a>
+                @endif
 
-                @if ($isSupervisor)
+                @if ($perm('historicos'))
                 <a href="{{ route('historicos.index') }}" class="nav-item {{ request()->routeIs('historicos.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
@@ -108,7 +116,9 @@
                     </svg>
                     <span>Históricos</span>
                 </a>
+                @endif
 
+                @if ($perm('notas_fiscais'))
                 <a href="{{ route('invoices.index') }}" class="nav-item {{ request()->routeIs('invoices.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <path d="M6 3H14L18 7V21H6V3Z" stroke="currentColor" stroke-width="2"></path>
@@ -119,7 +129,7 @@
                 </a>
                 @endif
 
-                @if ($isAdmin)
+                @if ($perm('modelos'))
                 <a href="{{ route('equipment-models.index') }}" class="nav-item {{ request()->routeIs('equipment-models.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"></rect>
@@ -127,7 +137,9 @@
                     </svg>
                     <span>Modelos</span>
                 </a>
+                @endif
 
+                @if ($isAdmin)
                 <a href="{{ route('configuracoes.index') }}" class="nav-item {{ request()->routeIs('configuracoes.*') ? 'is-active' : '' }}">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none">
                         <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"></circle>
@@ -158,9 +170,6 @@
                     </button>
 
                     <div class="account-menu-panel" id="accountMenuPanel" role="menu" aria-hidden="true">
-                        <button type="button" id="accountSettingsBtn" class="account-action" role="menuitem">
-                            Configurações
-                        </button>
 
                         <button type="button" id="themeToggleBtn" class="account-action account-action-toggle" role="menuitem" aria-pressed="false">
                             <span id="themeToggleLabel">Modo escuro</span>

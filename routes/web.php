@@ -103,6 +103,20 @@ Route::middleware('auth')->group(function (): void {
             ->name('configuracoes.users.permissions');
         Route::put('/configuracoes/empresa', [ConfiguracoesController::class, 'updateCompany'])
             ->name('configuracoes.company.update');
+        Route::post('/configuracoes/integracoes', [ConfiguracoesController::class, 'storeIntegration'])
+            ->name('configuracoes.integrations.store');
+        Route::put('/configuracoes/integracoes/{integration}', [ConfiguracoesController::class, 'updateIntegration'])
+            ->whereNumber('integration')
+            ->name('configuracoes.integrations.update');
+        Route::delete('/configuracoes/integracoes/{integration}', [ConfiguracoesController::class, 'destroyIntegration'])
+            ->whereNumber('integration')
+            ->name('configuracoes.integrations.destroy');
+        Route::put('/configuracoes/integracoes/{integration}/webhook-config', [ConfiguracoesController::class, 'updateWebhookConfig'])
+            ->whereNumber('integration')
+            ->name('configuracoes.integrations.webhook-config');
+        Route::post('/configuracoes/integracoes/{integration}/testar', [ConfiguracoesController::class, 'testIntegration'])
+            ->whereNumber('integration')
+            ->name('configuracoes.integrations.test');
     });
 
     // Admin only — manage models

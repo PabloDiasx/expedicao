@@ -74,6 +74,18 @@ class CarregamentoController extends Controller
             ]);
         }
 
+        \App\Support\Webhooks\WebhookDispatcher::dispatch((int) $tenant->id, 'carregamento_criado', [
+            'carregamento_id' => $carregamentoId,
+            'invoice_number' => $invoice->numero ?? null,
+            'motorista_nome' => $validated['motorista_nome'],
+            'motorista_documento' => $validated['motorista_documento'],
+            'placa_veiculo' => mb_strtoupper(trim($validated['placa_veiculo'])),
+            'motorista_empresa' => $validated['motorista_empresa'] ?? null,
+            'total_items' => count($serials),
+            'user_name' => auth()->user()->name ?? null,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+
         return redirect()->route('carregamentos.show', ['carregamento' => $carregamentoId]);
     }
 
@@ -224,6 +236,16 @@ class CarregamentoController extends Controller
             ]);
         }
 
+        $tenantIdForWebhook = (int) DB::table('carregamentos')->where('id', $row->id)->value('tenant_id');
+        \App\Support\Webhooks\WebhookDispatcher::dispatch($tenantIdForWebhook, 'equipamento_conferido', [
+            'serial_number' => $item->serial_number,
+            'carregamento_id' => $row->id,
+            'invoice_number' => DB::table('carregamentos as c')->join('fiscal_invoices as fi', 'fi.id', '=', 'c.fiscal_invoice_id')->where('c.id', $row->id)->value('fi.numero'),
+            'barcode_scanned' => $rawBarcode,
+            'user_name' => auth()->user()->name ?? null,
+            'timestamp' => $now->toIso8601String(),
+        ]);
+
         // Count progress
         $total = DB::table('carregamento_items')->where('carregamento_id', $row->id)->count();
         $conferidos = DB::table('carregamento_items')->where('carregamento_id', $row->id)->where('conferido', true)->count();
@@ -366,6 +388,17 @@ class CarregamentoController extends Controller
                 ]);
             }
         }
+
+        $invoiceNumero = DB::table('fiscal_invoices')->where('id', $row->fiscal_invoice_id)->value('numero');
+        \App\Support\Webhooks\WebhookDispatcher::dispatch((int) $tenant->id, 'carregamento_finalizado', [
+            'carregamento_id' => $row->id,
+            'invoice_number' => $invoiceNumero,
+            'motorista_nome' => DB::table('carregamentos')->where('id', $row->id)->value('motorista_nome'),
+            'placa_veiculo' => DB::table('carregamentos')->where('id', $row->id)->value('placa_veiculo'),
+            'total_items' => $items->count(),
+            'user_name' => auth()->user()->name ?? null,
+            'timestamp' => $now->toIso8601String(),
+        ]);
 
         return redirect()->route('expedition.index', ['etapa' => 'carregamento'])->with('swal', [
             'icon' => 'success',

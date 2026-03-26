@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Support\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -51,6 +54,13 @@ class ConfiguracoesController extends Controller
             ->where('status', 'active')
             ->first();
 
+        // Integrações
+        $integrations = DB::table('integrations')
+            ->where('tenant_id', $tenant->id)
+            ->orderByDesc('is_native')
+            ->orderBy('name')
+            ->get();
+
         return view('configuracoes.index', [
             'tab' => $tab,
             'users' => $users,
@@ -58,6 +68,7 @@ class ConfiguracoesController extends Controller
             'availableRoles' => $availableRoles,
             'currentRole' => $currentRole,
             'tenantData' => $tenantData,
+            'integrations' => $integrations,
             'subscription' => $subscription,
         ]);
     }
@@ -293,6 +304,260 @@ class ConfiguracoesController extends Controller
         }
 
         return $roles;
+    }
+
+    // ═══════════════ INTEGRAÇÕES ═══════════════
+
+    public function storeIntegration(Request $request, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+        $this->authorizeManageUsers();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'type' => ['required', 'string', Rule::in(['erp', 'api', 'webhook'])],
+            'base_url' => ['required', 'url', 'max:500'],
+            'auth_type' => ['required', 'string', Rule::in(['basic', 'bearer', 'api_key', 'none'])],
+            'auth_value' => ['nullable', 'string', 'max:1000'],
+            'verify_ssl' => ['nullable', 'boolean'],
+            'timeout_seconds' => ['nullable', 'integer', 'min:5', 'max:120'],
+        ]);
+
+        $slug = Str::slug($validated['name']);
+        $counter = 2;
+        $baseSlug = $slug;
+        while (DB::table('integrations')->where('tenant_id', $tenant->id)->where('slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+
+        DB::table('integrations')->insert([
+            'tenant_id' => $tenant->id,
+            'slug' => $slug,
+            'name' => trim($validated['name']),
+            'description' => $validated['description'] ?? null,
+            'type' => $validated['type'],
+            'base_url' => rtrim(trim($validated['base_url']), '/'),
+            'auth_type' => $validated['auth_type'],
+            'auth_value' => $validated['auth_value'] ?? null,
+            'verify_ssl' => (bool) ($validated['verify_ssl'] ?? true),
+            'timeout_seconds' => (int) ($validated['timeout_seconds'] ?? 30),
+            'status' => 'disconnected',
+            'is_native' => false,
+            'webhook_config' => $validated['type'] === 'webhook' ? json_encode($this->parseWebhookEvents($request)) : null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('configuracoes.index', ['tab' => 'integracoes'])->with('swal', [
+            'icon' => 'success',
+            'title' => 'Integração criada',
+            'text' => trim($validated['name']) . ' adicionada com sucesso.',
+        ]);
+    }
+
+    public function updateIntegration(Request $request, int $integration, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+        $this->authorizeManageUsers();
+
+        $row = DB::table('integrations')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $integration)
+            ->first(['id']);
+
+        if (! $row) {
+            return back()->with('swal', ['icon' => 'error', 'title' => 'Erro', 'text' => 'Integração não encontrada.']);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'base_url' => ['required', 'url', 'max:500'],
+            'auth_type' => ['required', 'string', Rule::in(['basic', 'bearer', 'api_key', 'none'])],
+            'auth_value' => ['nullable', 'string', 'max:1000'],
+            'verify_ssl' => ['nullable', 'boolean'],
+            'timeout_seconds' => ['nullable', 'integer', 'min:5', 'max:120'],
+        ]);
+
+        DB::table('integrations')->where('id', $row->id)->update([
+            'name' => trim($validated['name']),
+            'description' => $validated['description'] ?? null,
+            'base_url' => rtrim(trim($validated['base_url']), '/'),
+            'auth_type' => $validated['auth_type'],
+            'auth_value' => $validated['auth_value'] ?? null,
+            'verify_ssl' => (bool) ($validated['verify_ssl'] ?? true),
+            'timeout_seconds' => (int) ($validated['timeout_seconds'] ?? 30),
+            'webhook_config' => $request->input('type', 'api') === 'webhook' ? json_encode($this->parseWebhookEvents($request)) : null,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('configuracoes.index', ['tab' => 'integracoes'])->with('swal', [
+            'icon' => 'success',
+            'title' => 'Atualizado',
+            'text' => 'Integração atualizada.',
+        ]);
+    }
+
+    public function destroyIntegration(int $integration, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+        $this->authorizeManageUsers();
+
+        $row = DB::table('integrations')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $integration)
+            ->first(['id', 'name', 'is_native']);
+
+        if (! $row) {
+            return back()->with('swal', ['icon' => 'error', 'title' => 'Erro', 'text' => 'Integração não encontrada.']);
+        }
+
+        if ($row->is_native) {
+            return back()->with('swal', ['icon' => 'error', 'title' => 'Erro', 'text' => 'Integrações nativas não podem ser removidas.']);
+        }
+
+        DB::table('integrations')->where('id', $row->id)->delete();
+
+        return redirect()->route('configuracoes.index', ['tab' => 'integracoes'])->with('swal', [
+            'icon' => 'success',
+            'title' => 'Removida',
+            'text' => $row->name . ' foi removida.',
+        ]);
+    }
+
+    public function updateWebhookConfig(Request $request, int $integration, TenantContext $tenantContext): RedirectResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+        $this->authorizeManageUsers();
+
+        $row = DB::table('integrations')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $integration)
+            ->first(['id']);
+
+        if (! $row) {
+            return back()->with('swal', ['icon' => 'error', 'title' => 'Erro', 'text' => 'Integração não encontrada.']);
+        }
+
+        $events = $request->input('events', []);
+        $config = [];
+
+        $validEvents = array_keys(\App\Support\Webhooks\WebhookDispatcher::EVENTS);
+
+        foreach ($validEvents as $eventKey) {
+            $eventInput = $events[$eventKey] ?? [];
+            $enabled = isset($eventInput['enabled']) && $eventInput['enabled'] === '1';
+            $fields = isset($eventInput['fields']) && is_array($eventInput['fields']) ? $eventInput['fields'] : [];
+
+            // Only save enabled events
+            $config[$eventKey] = [
+                'enabled' => $enabled,
+                'fields' => $enabled ? array_values($fields) : [],
+            ];
+        }
+
+        DB::table('integrations')->where('id', $row->id)->update([
+            'webhook_config' => json_encode($config),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('configuracoes.index', ['tab' => 'integracoes'])->with('swal', [
+            'icon' => 'success',
+            'title' => 'Salvo',
+            'text' => 'Configuração de eventos atualizada.',
+        ]);
+    }
+
+    public function testIntegration(int $integration, TenantContext $tenantContext): JsonResponse
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($tenant, 404);
+
+        $row = DB::table('integrations')
+            ->where('tenant_id', $tenant->id)
+            ->where('id', $integration)
+            ->first();
+
+        if (! $row) {
+            return response()->json(['ok' => false, 'message' => 'Integração não encontrada.']);
+        }
+
+        try {
+            $client = Http::timeout((int) $row->timeout_seconds)
+                ->withOptions(['verify' => (bool) $row->verify_ssl])
+                ->acceptJson();
+
+            if ($row->auth_type === 'basic') {
+                $authHeader = str_starts_with(strtolower((string) $row->auth_value), 'basic ')
+                    ? (string) $row->auth_value
+                    : 'Basic ' . (string) $row->auth_value;
+                $client = $client->withHeaders(['Authorization' => $authHeader]);
+            } elseif ($row->auth_type === 'bearer') {
+                $client = $client->withToken((string) $row->auth_value);
+            } elseif ($row->auth_type === 'api_key') {
+                $client = $client->withHeaders(['X-API-Key' => (string) $row->auth_value]);
+            }
+
+            $url = rtrim((string) $row->base_url, '/');
+            $response = $row->type === 'webhook'
+                ? $client->post($url, ['test' => true])
+                : $client->get($url);
+
+            $now = now();
+            if ($response->successful()) {
+                DB::table('integrations')->where('id', $row->id)->update([
+                    'status' => 'connected',
+                    'last_tested_at' => $now,
+                    'last_test_result' => 'OK — HTTP ' . $response->status(),
+                    'updated_at' => $now,
+                ]);
+
+                return response()->json(['ok' => true, 'message' => 'Conexão OK — HTTP ' . $response->status()]);
+            }
+
+            DB::table('integrations')->where('id', $row->id)->update([
+                'status' => 'error',
+                'last_tested_at' => $now,
+                'last_test_result' => 'HTTP ' . $response->status(),
+                'updated_at' => $now,
+            ]);
+
+            return response()->json(['ok' => false, 'message' => 'Falha — HTTP ' . $response->status()]);
+        } catch (\Throwable $e) {
+            $now = now();
+            DB::table('integrations')->where('id', $row->id)->update([
+                'status' => 'error',
+                'last_tested_at' => $now,
+                'last_test_result' => mb_substr($e->getMessage(), 0, 400),
+                'updated_at' => $now,
+            ]);
+
+            return response()->json(['ok' => false, 'message' => 'Erro: ' . mb_substr($e->getMessage(), 0, 200)]);
+        }
+    }
+
+    private function parseWebhookEvents(Request $request): array
+    {
+        $events = $request->input('events', []);
+        $config = [];
+        $validEvents = array_keys(\App\Support\Webhooks\WebhookDispatcher::EVENTS);
+
+        foreach ($validEvents as $eventKey) {
+            $eventInput = $events[$eventKey] ?? [];
+            $enabled = isset($eventInput['enabled']) && $eventInput['enabled'] === '1';
+            $fields = isset($eventInput['fields']) && is_array($eventInput['fields']) ? $eventInput['fields'] : [];
+            $config[$eventKey] = [
+                'enabled' => $enabled,
+                'fields' => $enabled ? array_values($fields) : [],
+            ];
+        }
+
+        return $config;
     }
 
     private function setDefaultPermissions(int $userId, UserRole $role): void

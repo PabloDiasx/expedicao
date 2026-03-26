@@ -100,6 +100,8 @@ class ExpeditionController extends Controller
             'barcode' => ['required', 'string', 'max:120'],
             'device_identifier' => ['nullable', 'string', 'max:80'],
             'notes' => ['nullable', 'string', 'max:500'],
+        ], [
+            'barcode.required' => 'Leia ou digite um código de barras antes de registrar.',
         ]);
         $validated = $this->prepareBarcodeInput((int) $tenant->id, $validated, $statusService);
         $invoiceLookup = $invoiceSerialLookupService->findBySerial(
@@ -224,6 +226,19 @@ class ExpeditionController extends Controller
                 ->where('id', $equipmentId)
                 ->update($invoiceUpdate);
         }
+
+        // Dispatch webhook
+        \App\Support\Webhooks\WebhookDispatcher::dispatch((int) $tenant->id, 'entrada_registrada', [
+            'serial_number' => $serialNumber,
+            'barcode' => $validated['barcode_original'] ?? $validated['barcode'],
+            'model_name' => $result['status_name'] ?? '',
+            'status' => $result['status_name'] ?? 'Montado',
+            'invoice_number' => $invoiceLookup['invoice_number'] ?? null,
+            'customer_name' => $invoiceLookup['customer_name'] ?? null,
+            'destination' => $invoiceLookup['destination'] ?? null,
+            'user_name' => auth()->user()->name ?? null,
+            'timestamp' => now()->toIso8601String(),
+        ]);
 
         if (($invoiceLookup['matched'] ?? false) === true) {
             $message = 'Equipamento '.$result['serial_number'].' registrado na entrada';
