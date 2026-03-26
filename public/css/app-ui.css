@@ -1151,6 +1151,11 @@ body.dashboard-page.dark-mode .theme-switch::after {
         align-items: end;
     }
 
+    .dashboard-page .historicos-filters-grid {
+        grid-template-columns: 1.5fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr auto;
+        align-items: end;
+    }
+
     .dashboard-page .montagem-date-filter {
         justify-content: flex-end;
         width: auto;

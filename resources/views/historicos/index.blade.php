@@ -1,6 +1,6 @@
 <x-layouts.app :title="'Historicos'">
     <section class="panel-card">
-        <form method="GET" action="{{ route('historicos.index') }}" class="filters-grid">
+        <form method="GET" action="{{ route('historicos.index') }}" class="filters-grid historicos-filters-grid">
             <div>
                 <label class="panel-label" for="q">Busca</label>
                 <input id="q" name="q" type="text" class="input" value="{{ $filters['q'] }}" placeholder="Serial, barcode, modelo, usuario ou cliente">
@@ -40,7 +40,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="filters-actions">
+            <div class="filters-actions" style="align-self:flex-end;">
                 <button type="submit" class="page-btn">Filtrar</button>
                 <a href="{{ route('historicos.index') }}" class="page-btn page-btn-light">Limpar</a>
             </div>
