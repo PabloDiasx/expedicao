@@ -54,7 +54,7 @@
                         <th>Serial</th>
                         <th>Modelo</th>
                         <th>Cliente</th>
-                        <th>Codigo de barras</th>
+                        <th>Código de barras</th>
                         <th>Status</th>
                         <th>Setor</th>
                         <th>Atualizado em</th>
@@ -197,7 +197,7 @@
                     Swal.fire({
                         icon: 'warning',
                         title: 'Remover equipamento?',
-                        html: 'Tem certeza que deseja remover <strong>' + serial + '</strong>? Esta acao nao pode ser desfeita.',
+                        html: 'Tem certeza que deseja remover <strong>' + serial + '</strong>? Esta ação não pode ser desfeita.',
                         showCancelButton: true,
                         confirmButtonColor: '#ef4444',
                         confirmButtonText: 'Sim, remover',

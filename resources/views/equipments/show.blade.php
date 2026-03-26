@@ -10,7 +10,7 @@
 
         <div class="invoice-kv-grid" style="margin-top:var(--space-3);">
             <div><strong>Modelo:</strong> {{ $equipment->model_name }}</div>
-            <div><strong>Codigo de barras:</strong> {{ $equipment->barcode }}</div>
+            <div><strong>Código de barras:</strong> {{ $equipment->barcode }}</div>
             <div>
                 <strong>Status:</strong>
                 <span class="status-badge" style="--status-color: @safeColor($equipment->status_color)">
@@ -22,7 +22,7 @@
             <div><strong>Montado em:</strong> {{ $equipment->assembled_at ? \Illuminate\Support\Carbon::parse($equipment->assembled_at)->format('d/m/Y') : '-' }}</div>
             <div><strong>Atualizado em:</strong> {{ \Illuminate\Support\Carbon::parse($equipment->updated_at)->format('d/m/Y H:i') }}</div>
             @if ($equipment->notes)
-                <div><strong>Observacoes:</strong> {{ $equipment->notes }}</div>
+                <div><strong>Observações:</strong> {{ $equipment->notes }}</div>
             @endif
         </div>
     </section>
@@ -42,12 +42,12 @@
         <h2 class="section-title">Dados da Nota Fiscal (Entrada)</h2>
 
         <div class="invoice-kv-grid">
-            <div><strong>Numero da NF:</strong> {{ $equipment->entry_invoice_number ?? '-' }}</div>
+            <div><strong>Número da NF:</strong> {{ $equipment->entry_invoice_number ?? '-' }}</div>
             <div><strong>Cliente:</strong> {{ $equipment->entry_customer_name ?? '-' }}</div>
             <div><strong>Destino:</strong> {{ $equipment->entry_destination ?? '-' }}</div>
             <div><strong>ID da NF na Nomus:</strong> {{ $equipment->entry_invoice_external_id ?? '-' }}</div>
             <div><strong>Vinculada em:</strong> {{ $equipment->entry_invoice_linked_at ? \Illuminate\Support\Carbon::parse($equipment->entry_invoice_linked_at)->format('d/m/Y H:i') : '-' }}</div>
-            <div><strong>Ultima atualizacao na Nomus:</strong> {{ $equipment->invoice_nomus_updated_at ? \Illuminate\Support\Carbon::parse($equipment->invoice_nomus_updated_at)->format('d/m/Y H:i') : '-' }}</div>
+            <div><strong>Última atualização na Nomus:</strong> {{ $equipment->invoice_nomus_updated_at ? \Illuminate\Support\Carbon::parse($equipment->invoice_nomus_updated_at)->format('d/m/Y H:i') : '-' }}</div>
         </div>
 
         @if ($equipment->entry_invoice_id)
@@ -78,7 +78,7 @@
                     <input id="edit_destino_venda" name="destino_venda" type="text" class="input" value="{{ $equipment->destino_venda }}" maxlength="200" placeholder="Para onde vai">
                 </div>
                 <div>
-                    <label class="panel-label" for="edit_notes">Observacoes</label>
+                    <label class="panel-label" for="edit_notes">Observações</label>
                     <textarea id="edit_notes" name="notes" class="input" rows="3" maxlength="2000" style="resize:vertical;">{{ $equipment->notes }}</textarea>
                 </div>
                 <div class="filters-actions">

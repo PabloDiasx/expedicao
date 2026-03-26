@@ -26,9 +26,9 @@
     </section>
 
     <section class="panel-card">
-        <h2 class="section-title">Leitura para conferencia</h2>
+        <h2 class="section-title">Leitura para conferência</h2>
         <div>
-            <label class="panel-label" for="scan-barcode">Codigo de barras</label>
+            <label class="panel-label" for="scan-barcode">Código de barras</label>
             <input
                 id="scan-barcode"
                 type="text"
@@ -73,7 +73,7 @@
                                         {{ $item->status_name }}
                                     </span>
                                 @else
-                                    <span style="color:var(--muted);">Nao cadastrado</span>
+                                    <span style="color:var(--muted);">Não cadastrado</span>
                                 @endif
                             </td>
                             <td>
@@ -113,7 +113,7 @@
                     <input id="edit_motorista_documento" name="motorista_documento" type="text" class="input" required value="{{ $carregamento->motorista_documento }}" maxlength="14">
                 </div>
                 <div>
-                    <label class="panel-label" for="edit_placa_veiculo">Placa do veiculo</label>
+                    <label class="panel-label" for="edit_placa_veiculo">Placa do veículo</label>
                     <input id="edit_placa_veiculo" name="placa_veiculo" type="text" class="input" required value="{{ $carregamento->placa_veiculo }}" maxlength="8" style="text-transform:uppercase;">
                 </div>
                 <div>

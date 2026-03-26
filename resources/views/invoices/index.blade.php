@@ -37,10 +37,10 @@
                     <thead>
                         <tr>
                             <th>NF-e</th>
-                            <th>Destinatario</th>
+                            <th>Destinatário</th>
                             <th>Valor Total</th>
-                            <th>Data de Emissao</th>
-                            <th>Situacao</th>
+                            <th>Data de Emissão</th>
+                            <th>Situação</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -89,13 +89,13 @@
                     @endif
 
                     <span class="pagination-current">
-                        Pagina {{ $invoices->currentPage() }} de {{ $invoices->lastPage() }}
+                        Página {{ $invoices->currentPage() }} de {{ $invoices->lastPage() }}
                     </span>
 
                     @if ($invoices->hasMorePages())
-                        <a class="pagination-link" href="{{ $invoices->nextPageUrl() }}">Proxima</a>
+                        <a class="pagination-link" href="{{ $invoices->nextPageUrl() }}">Próxima</a>
                     @else
-                        <span class="pagination-link pagination-disabled">Proxima</span>
+                        <span class="pagination-link pagination-disabled">Próxima</span>
                     @endif
                 </div>
             @endif

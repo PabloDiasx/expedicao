@@ -8,6 +8,7 @@ use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentModelController;
 use App\Http\Controllers\ExpeditionController;
 use App\Http\Controllers\CarregamentoController;
+use App\Http\Controllers\ConfiguracoesController;
 use App\Http\Controllers\HistoricoController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ProductionController;
@@ -85,6 +86,23 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/carregamentos/{carregamento}/finalizar', [CarregamentoController::class, 'finalizar'])
             ->whereNumber('carregamento')
             ->name('carregamentos.finalizar');
+    });
+
+    // Admin+ — configuracoes
+    Route::middleware('role:admin')->group(function (): void {
+        Route::get('/configuracoes', [ConfiguracoesController::class, 'index'])->name('configuracoes.index');
+        Route::post('/configuracoes/usuarios', [ConfiguracoesController::class, 'storeUser'])->name('configuracoes.users.store');
+        Route::put('/configuracoes/usuarios/{user}', [ConfiguracoesController::class, 'updateUser'])
+            ->whereNumber('user')
+            ->name('configuracoes.users.update');
+        Route::delete('/configuracoes/usuarios/{user}', [ConfiguracoesController::class, 'destroyUser'])
+            ->whereNumber('user')
+            ->name('configuracoes.users.destroy');
+        Route::put('/configuracoes/usuarios/{user}/permissoes', [ConfiguracoesController::class, 'updatePermissions'])
+            ->whereNumber('user')
+            ->name('configuracoes.users.permissions');
+        Route::put('/configuracoes/empresa', [ConfiguracoesController::class, 'updateCompany'])
+            ->name('configuracoes.company.update');
     });
 
     // Admin only — manage models

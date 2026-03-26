@@ -5,7 +5,7 @@
         <form id="expedition-form" method="POST" action="{{ route('expedition.store') }}" class="operation-form stack-16" novalidate>
             @csrf
             <div>
-                <label class="panel-label" for="barcode">Codigo de barras</label>
+                <label class="panel-label" for="barcode">Código de barras</label>
                 <input
                     id="barcode"
                     name="barcode"
@@ -21,7 +21,7 @@
 
             {{-- Feedback visual da conversao --}}
             <div id="conversion-feedback" class="conversion-feedback" style="display:none;">
-                <span class="conversion-label">Codigo lido:</span>
+                <span class="conversion-label">Código lido:</span>
                 <span id="conversion-original" class="conversion-original"></span>
                 <span class="conversion-arrow">→</span>
                 <span class="conversion-label">Convertido:</span>
@@ -45,7 +45,7 @@
             </div>
 
             <div>
-                <label class="panel-label" for="notes">Observacao</label>
+                <label class="panel-label" for="notes">Observação</label>
                 <input
                     id="notes"
                     name="notes"
@@ -190,7 +190,8 @@
                     if (payload.invoice && payload.invoice.multiple === true && showMultipleAlert && typeof window.appAlert === 'function') {
                         window.appAlert({ icon: 'warning', title: 'Mais de uma nota encontrada', text: 'Existe mais de uma NF para este serial. Revise as notas antes de registrar a entrada.' });
                     }
-                    if (btnRegistrar) btnRegistrar.focus();
+                    // Foco volta pro barcode, nao pro botao
+                    if (barcodeInput) barcodeInput.focus();
                 })
                 .catch(function () { clearTimeout(timeoutId); setPreviewLoading(false); clearInvoicePreview(); });
             }
@@ -238,13 +239,13 @@
 
             btnRegistrar.addEventListener('click', function () { submitIntentional = true; });
 
-            // Manter foco sempre no campo barcode
+            // Retornar foco ao barcode apenas se saiu do form inteiro
             barcodeInput.addEventListener('blur', function () {
                 setTimeout(function () {
-                    if (document.activeElement !== btnRegistrar) {
+                    if (!form.contains(document.activeElement)) {
                         barcodeInput.focus();
                     }
-                }, 100);
+                }, 150);
             });
 
             form.addEventListener('submit', function (e) {

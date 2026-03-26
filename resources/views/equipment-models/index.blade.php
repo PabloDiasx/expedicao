@@ -160,13 +160,13 @@
                 @endif
 
                 <span class="pagination-current">
-                    Pagina {{ $models->currentPage() }} de {{ $models->lastPage() }}
+                    Página {{ $models->currentPage() }} de {{ $models->lastPage() }}
                 </span>
 
                 @if ($models->hasMorePages())
-                    <a class="pagination-link" href="{{ $models->nextPageUrl() }}">Proxima</a>
+                    <a class="pagination-link" href="{{ $models->nextPageUrl() }}">Próxima</a>
                 @else
-                    <span class="pagination-link pagination-disabled">Proxima</span>
+                    <span class="pagination-link pagination-disabled">Próxima</span>
                 @endif
             </div>
         @endif
@@ -194,7 +194,7 @@
                     <label class="panel-label" for="edit_model_active">Ativo</label>
                     <select id="edit_model_active" name="is_active" class="chart-select">
                         <option value="1">Sim</option>
-                        <option value="0">Nao</option>
+                        <option value="0">Não</option>
                     </select>
                 </div>
                 <div class="filters-actions">

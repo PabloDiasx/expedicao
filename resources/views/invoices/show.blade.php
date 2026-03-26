@@ -34,7 +34,7 @@
                     <input id="motorista_documento" name="motorista_documento" type="text" class="input" required placeholder="000.000.000-00" maxlength="14">
                 </div>
                 <div>
-                    <label class="panel-label" for="placa_veiculo">Placa do veiculo</label>
+                    <label class="panel-label" for="placa_veiculo">Placa do veículo</label>
                     <input id="placa_veiculo" name="placa_veiculo" type="text" class="input" required placeholder="ABC-1D23" maxlength="8" style="text-transform:uppercase;">
                 </div>
                 <div>
@@ -52,7 +52,7 @@
     @if ($apiError)
         <section class="panel-card">
             <p class="alert-warning">
-                Nao foi possivel buscar os detalhes mais recentes na API Nomus: {{ $apiError }}
+                Não foi possível buscar os detalhes mais recentes na API Nomus: {{ $apiError }}
             </p>
         </section>
     @endif
@@ -60,10 +60,10 @@
     <section class="panel-card">
         <h2 class="section-title">Dados principais</h2>
         <div class="invoice-kv-grid">
-            <div><strong>Numero:</strong> {{ $invoice->numero ?? '-' }}</div>
+            <div><strong>Número:</strong> {{ $invoice->numero ?? '-' }}</div>
             <div><strong>CNPJ Emitente:</strong> {{ $invoice->cnpj_emitente ?? '-' }}</div>
             <div><strong>Emitente:</strong> {{ $xmlData['emitente']['nome'] ?: '-' }}</div>
-            <div><strong>Destinatario:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
+            <div><strong>Destinatário:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
             <div>
                 <strong>Valor NF:</strong>
                 @if ($xmlData['totais']['valor_nf'])
@@ -141,8 +141,8 @@
             <div class="invoice-kv-grid">
                 <div><strong>Emitente:</strong> {{ $xmlData['emitente']['nome'] ?: '-' }}</div>
                 <div><strong>CNPJ do Emitente:</strong> {{ $formatDocument($xmlData['emitente']['cnpj'] ?? null) }}</div>
-                <div><strong>Destinatario:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
-                <div><strong>CNPJ/CPF do Destinatario:</strong> {{ $formatDocument($xmlData['destinatario']['cnpj'] ?: ($xmlData['destinatario']['cpf'] ?: null)) }}</div>
+                <div><strong>Destinatário:</strong> {{ $xmlData['destinatario']['nome'] ?: '-' }}</div>
+                <div><strong>CNPJ/CPF do Destinatário:</strong> {{ $formatDocument($xmlData['destinatario']['cnpj'] ?: ($xmlData['destinatario']['cpf'] ?: null)) }}</div>
                 <div><strong>Valor dos Produtos:</strong> {{ $formatCurrency($xmlData['totais']['valor_produtos'] ?? null) }}</div>
                 <div><strong>Valor Total da Nota:</strong> {{ $formatCurrency($xmlData['totais']['valor_nf'] ?? null) }}</div>
             </div>
@@ -174,7 +174,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="empty-cell">Nao foram encontrados itens no XML da nota.</td>
+                                <td colspan="7" class="empty-cell">Não foram encontrados itens no XML da nota.</td>
                             </tr>
                         @endforelse
                     </tbody>

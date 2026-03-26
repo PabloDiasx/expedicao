@@ -62,7 +62,7 @@
                         <th>Usuario</th>
                         <th>Origem</th>
                         <th>NF</th>
-                        <th>Observacao</th>
+                        <th>Observação</th>
                     </tr>
                 </thead>
                 <tbody>
