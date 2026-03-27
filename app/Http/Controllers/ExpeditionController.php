@@ -201,9 +201,14 @@ class ExpeditionController extends Controller
 
         if ($equipmentId > 0) {
             $now = now();
+            $notes = trim((string) ($validated['notes'] ?? ''));
             $invoiceUpdate = [
                 'updated_at' => $now,
             ];
+
+            if ($notes !== '') {
+                $invoiceUpdate['notes'] = $notes;
+            }
 
             if (($invoiceLookup['matched'] ?? false) === true) {
                 $invoiceUpdate['entry_invoice_id'] = $invoiceLookup['invoice_id'];

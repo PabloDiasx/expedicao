@@ -46,6 +46,7 @@ class EquipmentController extends Controller
                 'e.entry_customer_name',
                 'e.entry_destination',
                 'e.entry_invoice_linked_at',
+                'e.notes',
                 'e.updated_at',
                 'em.name as model_name',
                 'st.id as status_id',

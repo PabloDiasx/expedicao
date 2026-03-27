@@ -57,6 +57,7 @@
                         <th>Código de barras</th>
                         <th>Status</th>
                         <th>Setor</th>
+                        <th>Observação</th>
                         <th>Atualizado em</th>
                         <th></th>
                     </tr>
@@ -106,6 +107,7 @@
                                 </div>
                             </td>
                             <td>{{ $equipment->sector_name ?? '-' }}</td>
+                            <td>{{ $equipment->notes ?? '-' }}</td>
                             <td>{{ \Illuminate\Support\Carbon::parse($equipment->updated_at)->format('d/m/Y H:i') }}</td>
                             <td>
                                 <form method="POST" action="{{ route('equipments.destroy', ['equipment' => $equipment->id]) }}" class="inline-delete-form js-equipment-delete" data-serial="{{ $equipment->serial_number }}">
@@ -119,7 +121,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="empty-cell">Nenhum equipamento localizado.</td>
+                            <td colspan="9" class="empty-cell">Nenhum equipamento localizado.</td>
                         </tr>
                     @endforelse
                 </tbody>
