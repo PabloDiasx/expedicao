@@ -45,8 +45,14 @@ class TenantResolver
 
     private function extractSlugFromHost(string $host): string
     {
-        if ($host === 'localhost' || $host === '127.0.0.1') {
-            return '';
+        // Localhost and IPs should use default tenant or query param
+        if ($host === 'localhost' || $host === '127.0.0.1' || filter_var($host, FILTER_VALIDATE_IP)) {
+            $tenant = Tenant::query()
+                ->where('domain', $host)
+                ->where('is_active', true)
+                ->first();
+
+            return $tenant?->slug ?? '';
         }
 
         $parts = explode('.', $host);
