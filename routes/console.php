@@ -29,6 +29,8 @@ Artisan::command('nomus:sync-invoices {--tenant=} {--full}', function () {
 
     /** @var NomusInvoiceSyncService $syncService */
     $syncService = app(NomusInvoiceSyncService::class);
+    /** @var \App\Support\Invoices\InvoiceSerialLookupService $lookupService */
+    $lookupService = app(\App\Support\Invoices\InvoiceSerialLookupService::class);
     $hasErrors = false;
 
     foreach ($tenants as $tenant) {
@@ -42,6 +44,45 @@ Artisan::command('nomus:sync-invoices {--tenant=} {--full}', function () {
                 $result['updated'],
                 $result['pages'],
             ));
+
+            // Auto-link NFs a equipamentos sem NF (movido do middleware AutoSyncNomus)
+            $tenantId = (int) $tenant->id;
+            $unlinked = \Illuminate\Support\Facades\DB::table('equipments')
+                ->where('tenant_id', $tenantId)
+                ->whereNull('entry_invoice_id')
+                ->where('serial_number', 'like', '%.%.%')
+                ->limit(50)
+                ->get(['id', 'serial_number']);
+
+            $now = now();
+            foreach ($unlinked as $eq) {
+                try {
+                    $lookup = $lookupService->findBySerial($tenantId, $eq->serial_number);
+                    if (($lookup['matched'] ?? false) !== true || ($lookup['multiple'] ?? false) === true) {
+                        continue;
+                    }
+                    \Illuminate\Support\Facades\DB::table('equipments')
+                        ->where('id', $eq->id)
+                        ->update([
+                            'entry_invoice_id' => $lookup['invoice_id'],
+                            'entry_invoice_external_id' => $lookup['invoice_external_id'],
+                            'entry_invoice_number' => $lookup['invoice_number'],
+                            'entry_customer_name' => $lookup['customer_name'],
+                            'entry_destination' => $lookup['destination'],
+                            'entry_invoice_linked_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                    \App\Support\Webhooks\WebhookDispatcher::dispatch($tenantId, 'nf_vinculada', [
+                        'serial_number' => $eq->serial_number,
+                        'invoice_number' => $lookup['invoice_number'],
+                        'customer_name' => $lookup['customer_name'],
+                        'destination' => $lookup['destination'],
+                        'timestamp' => $now->toIso8601String(),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('[nomus:sync-invoices] Erro ao vincular NF ' . $eq->serial_number . ': ' . $e->getMessage());
+                }
+            }
         } catch (\Throwable $exception) {
             $hasErrors = true;
             $this->error(sprintf(
